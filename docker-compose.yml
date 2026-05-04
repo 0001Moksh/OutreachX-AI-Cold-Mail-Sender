@@ -1,0 +1,163 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: outreachx
+      POSTGRES_PASSWORD: outreachx_password
+      POSTGRES_DB: outreachx
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - outreachx-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outreachx"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - outreachx-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://outreachx:outreachx_password@postgres:5432/outreachx
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-your-encryption-key}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-70b-versatile}
+      GROQ_TEMPERATURE: ${GROQ_TEMPERATURE:-0.7}
+      COHERE_API_KEY: ${COHERE_API_KEY}
+      COHERE_EMBED_MODEL: ${COHERE_EMBED_MODEL:-embed-v4.0}
+      COHERE_OUTPUT_DIMENSION: ${COHERE_OUTPUT_DIMENSION:-1536}
+      PINECONE_API_KEY: ${PINECONE_API_KEY}
+      ALLOWED_ORIGINS: http://localhost:3000,http://frontend:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - outreachx-network
+    volumes:
+      - ./backend:/app
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A tasks worker --loglevel=info --concurrency=4 --queues=default,emails,ai_tasks,cleanup
+    environment:
+      DATABASE_URL: postgresql://outreachx:outreachx_password@postgres:5432/outreachx
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-70b-versatile}
+      GROQ_TEMPERATURE: ${GROQ_TEMPERATURE:-0.7}
+      COHERE_API_KEY: ${COHERE_API_KEY}
+      COHERE_EMBED_MODEL: ${COHERE_EMBED_MODEL:-embed-v4.0}
+      COHERE_OUTPUT_DIMENSION: ${COHERE_OUTPUT_DIMENSION:-1536}
+      PINECONE_API_KEY: ${PINECONE_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    networks:
+      - outreachx-network
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  # Celery Beat Scheduler
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A tasks beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      DATABASE_URL: postgresql://outreachx:outreachx_password@postgres:5432/outreachx
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - outreachx-network
+    volumes:
+      - ./backend:/app
+      - celery_beat_schedule:/var/lib/celery
+    restart: unless-stopped
+
+  # Flower - Celery Monitoring Dashboard
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A tasks flower --port=5555 --broker=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - outreachx-network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - outreachx-network
+    volumes:
+      - ./frontend:/app
+
+volumes:
+  postgres_data:
+  celery_beat_schedule:
+
+networks:
+  outreachx-network:
+    driver: bridge

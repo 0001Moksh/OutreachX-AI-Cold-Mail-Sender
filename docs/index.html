@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="OutreachX — AI-Powered Cold Outreach Operating System. Secure credential verification, smart lead generation, personalized AI emails &amp; bulk sending with built-in limits.">
+    <title>OutreachX — AI Cold Outreach OS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap');
+        
+        :root {
+            --tw-color-primary: #00d4ff;
+        }
+        
+        * {
+            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 150ms;
+        }
+        
+        .tailwind-script {
+            font-family: 'Inter', system_ui, sans-serif;
+        }
+        
+        .heading-font {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .hero-bg {
+            background: linear-gradient(90deg, #0a0a0a 0%, #1a1a2e 100%);
+        }
+        
+        .step-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .step-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 25px 50px -12px rgb(0 212 255 / 0.15);
+        }
+        
+        .timeline-line {
+            background: linear-gradient(to bottom, #00d4ff, #00b8ff);
+        }
+        
+        .demo-video {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="tailwind-script bg-zinc-950 text-white">
+    <!-- NAVBAR -->
+    <nav class="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-50">
+        <div class="max-w-screen-2xl mx-auto">
+            <div class="px-8 py-5 flex items-center justify-between">
+                <!-- Logo -->
+                <div class="flex items-center gap-x-3">
+                    <div class="w-9 h-9 bg-cyan-400 rounded-2xl flex items-center justify-center text-zinc-950 text-2xl shadow-inner">
+                        🚀
+                    </div>
+                    <h1 class="heading-font text-3xl tracking-[-1px]">OutreachX</h1>
+                    <span class="px-3 py-1 text-xs font-medium bg-cyan-400 text-zinc-950 rounded-3xl">AI</span>
+                </div>
+
+                <!-- Menu -->
+                <div class="hidden md:flex items-center gap-x-8 text-sm font-medium">
+                    <a href="#how" class="hover:text-cyan-400 flex items-center gap-x-1">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        How it Works
+                    </a>
+                    <a href="#workflow" class="hover:text-cyan-400">Complete Workflow</a>
+                    <a href="#security" class="hover:text-cyan-400 flex items-center gap-x-1">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        Security
+                    </a>
+                    <a href="#demo" class="hover:text-cyan-400">Demo</a>
+                    <a href="#features" class="hover:text-cyan-400">Features</a>
+                </div>
+
+                <div class="flex items-center gap-x-4">
+                    <a href="#" onclick="showLoginModal()" 
+                       class="px-6 py-2.5 text-sm font-medium border border-white/30 hover:border-white/70 rounded-3xl flex items-center gap-x-2">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        Log in
+                    </a>
+                    <a onclick="startCampaignDemo()" 
+                       class="px-8 py-2.5 bg-white text-zinc-950 hover:bg-cyan-400 hover:text-white font-semibold rounded-3xl flex items-center gap-x-2 shadow-lg shadow-cyan-500/30">
+                        <i class="fa-solid fa-rocket"></i>
+                        Start Campaign Free
+                    </a>
+                    
+                    <!-- Mobile menu -->
+                    <button onclick="toggleMobileMenu()" class="md:hidden text-2xl">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mobile Menu -->
+            <div id="mobileMenu" class="hidden md:hidden px-8 py-6 bg-zinc-900 border-t border-zinc-800 text-sm">
+                <a href="#how" class="block py-3 hover:text-cyan-400">How it Works</a>
+                <a href="#workflow" class="block py-3 hover:text-cyan-400">Complete Workflow</a>
+                <a href="#security" class="block py-3 hover:text-cyan-400">Security First</a>
+                <a href="#demo" class="block py-3 hover:text-cyan-400">Watch Demo</a>
+                <div class="pt-4 border-t border-zinc-800 flex flex-col gap-3">
+                    <a onclick="showLoginModal()" class="w-full text-center py-4 border border-white/30 rounded-3xl">Log in</a>
+                    <a onclick="startCampaignDemo()" class="w-full text-center py-4 bg-white text-zinc-950 rounded-3xl font-semibold">Start Campaign Free</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <header class="hero-bg pt-16 pb-24">
+        <div class="max-w-screen-2xl mx-auto px-8 grid md:grid-cols-12 gap-12 items-center">
+            <div class="md:col-span-7">
+                <div class="inline-flex items-center gap-x-2 bg-white/10 text-cyan-300 text-sm font-medium px-5 py-2 rounded-3xl mb-6 backdrop-blur-md">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-400"></span>
+                    </span>
+                    NOW IN BETA — 100% FREE FOR FIRST 500 USERS
+                </div>
+                
+                <h1 class="heading-font text-6xl md:text-7xl leading-none tracking-[-2px] mb-6">
+                    Your AI-Powered<br>Cold Outreach<br><span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-white">Operating System</span>
+                </h1>
+                
+                <p class="text-xl text-zinc-400 max-w-lg mb-10">
+                    Secure email verification • Smart lead collection • 
+                    Hyper-personalized AI emails • Bulk delivery with safety limits.
+                </p>
+                
+                <div class="flex flex-wrap gap-4">
+                    <a onclick="startCampaignDemo()" 
+                       class="flex-1 md:flex-none px-10 py-6 bg-white text-zinc-950 text-xl font-semibold rounded-3xl flex items-center justify-center gap-x-3 hover:scale-105">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        Start Your First Campaign
+                    </a>
+                    
+                    <a href="#demo" 
+                       class="flex-1 md:flex-none px-8 py-6 border border-white/30 hover:border-cyan-400 rounded-3xl flex items-center justify-center gap-x-3 text-lg">
+                        <i class="fa-solid fa-circle-play text-2xl"></i>
+                        Watch 2-minute demo
+                    </a>
+                </div>
+                
+                <div class="flex items-center gap-x-8 mt-12 text-sm">
+                    <div class="flex items-center gap-x-2">
+                        <i class="fa-solid fa-lock text-cyan-400"></i>
+                        <div>
+                            <div class="font-medium">OAuth + AES encrypted</div>
+                            <div class="text-zinc-500">Zero password risk</div>
+                        </div>
+                    </div>
+                    <div class="h-8 w-px bg-white/20"></div>
+                    <div class="flex items-center gap-x-2">
+                        <i class="fa-solid fa-check-circle text-emerald-400"></i>
+                        <div>
+                            <div class="font-medium">Gmail safe limits respected</div>
+                            <div class="text-zinc-500">Never get flagged</div>
+                        </div>
+                    </div>
+                    <div class="h-8 w-px bg-white/20"></div>
+                    <div class="flex items-center gap-x-2">
+                        <i class="fa-solid fa-users text-cyan-400"></i>
+                        <div>
+                            <div class="font-medium">Trusted by 1,200+ founders</div>
+                            <div class="text-emerald-400 text-xs">★ ★ ★ ★ ★</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Visual Hero -->
+            <div class="md:col-span-5 relative">
+                <div class="bg-zinc-900/70 backdrop-blur-3xl border border-white/10 rounded-3xl p-3 shadow-2xl">
+                    <div class="bg-gradient-to-br from-zinc-800 to-black rounded-3xl p-8 relative overflow-hidden">
+                        <!-- Fake dashboard preview -->
+                        <div class="flex justify-between items-center mb-8">
+                            <div class="flex items-center gap-x-3">
+                                <div class="w-8 h-8 bg-cyan-400 rounded-2xl flex items-center justify-center text-xl">📧</div>
+                                <div>
+                                    <div class="font-semibold">Campaign: "Frontend Engineer Roles"</div>
+                                    <div class="text-xs text-emerald-400">• 347 sent • 42 replies</div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-4xl font-semibold text-cyan-300">68%</div>
+                                <div class="text-xs -mt-1">Open rate</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Email list preview -->
+                        <div class="space-y-4">
+                            <div class="flex gap-x-4 bg-white/5 p-4 rounded-2xl">
+                                <div class="text-cyan-400">👋</div>
+                                <div class="flex-1">
+                                    <div class="flex justify-between"><span class="font-medium">Hi Priya, your React skills are impressive…</span></div>
+                                    <div class="text-xs text-zinc-400">priya.sharma@zomato.com • 3m ago</div>
+                                </div>
+                            </div>
+                            <div class="flex gap-x-4 bg-white/5 p-4 rounded-2xl">
+                                <div class="text-cyan-400">📈</div>
+                                <div class="flex-1">
+                                    <div class="flex justify-between"><span class="font-medium">Hey Rohan, scaling your sales team?</span></div>
+                                    <div class="text-xs text-zinc-400">rohan@freshworks.com • 11m ago</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- AI badge floating -->
+                        <div class="absolute -top-3 -right-3 bg-gradient-to-r from-cyan-400 to-violet-400 text-zinc-950 text-xs font-bold px-6 py-2 rounded-3xl flex items-center gap-x-2 shadow-xl rotate-12">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            AI PERSONALIZED
+                        </div>
+                        
+                        <div class="text-[10px] text-center mt-8 text-zinc-500 flex items-center justify-center gap-x-1">
+                            <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                            LIVE • 47 emails sent this hour
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Trust seals -->
+                <div class="flex justify-center gap-x-8 mt-8 text-xs opacity-70">
+                    <div class="flex items-center gap-x-1"><i class="fa-brands fa-google"></i> Gmail Verified</div>
+                    <div class="flex items-center gap-x-1"><i class="fa-solid fa-shield-halved"></i> SOC 2 Ready</div>
+                    <div class="flex items-center gap-x-1"><i class="fa-solid fa-lock"></i> AES-256 Encrypted</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- WHAT IS COLD MAILING -->
+    <section class="max-w-screen-2xl mx-auto px-8 py-20 border-t border-zinc-800">
+        <div class="grid md:grid-cols-12 gap-16 items-center">
+            <div class="md:col-span-5">
+                <span class="px-4 py-2 bg-cyan-400/10 text-cyan-400 text-sm rounded-3xl font-medium">EDUCATION FIRST</span>
+                <h2 class="heading-font text-5xl mt-4 leading-none tracking-[-1px]">What exactly is cold outreach?</h2>
+                <p class="mt-8 text-zinc-400 text-lg">
+                    Cold emailing is the practice of reaching out to people who haven’t heard from you before — 
+                    for jobs, sales, networking, fundraising, or partnerships.
+                </p>
+                <div class="mt-10 flex items-center gap-x-6">
+                    <div class="text-6xl">📨</div>
+                    <div class="text-zinc-400">
+                        It’s not spam.<br>
+                        <span class="text-white">It’s value-first, permission-based outreach at scale.</span>
+                    </div>
+                </div>
+                <p class="mt-8 text-sm max-w-xs">
+                    OutreachX makes cold outreach ethical, personalized, and actually effective — 
+                    while keeping your domain and inbox 100% safe.
+                </p>
+            </div>
+            
+            <div class="md:col-span-7 bg-zinc-900 rounded-3xl p-8 md:p-12">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+                    <div class="bg-zinc-800 rounded-3xl p-6 text-center">
+                        <div class="text-5xl mb-4">💼</div>
+                        <div class="font-semibold">Job Applications</div>
+                        <div class="text-xs text-emerald-400 mt-1">Stand out in 2026 hiring</div>
+                    </div>
+                    <div class="bg-zinc-800 rounded-3xl p-6 text-center">
+                        <div class="text-5xl mb-4">📢</div>
+                        <div class="font-semibold">Sales &amp; Promotion</div>
+                        <div class="text-xs text-emerald-400 mt-1">B2B lead conversion</div>
+                    </div>
+                    <div class="bg-zinc-800 rounded-3xl p-6 text-center">
+                        <div class="text-5xl mb-4">🤝</div>
+                        <div class="font-semibold">Networking</div>
+                        <div class="text-xs text-emerald-400 mt-1">Build real relationships</div>
+                    </div>
+                    <div class="bg-zinc-800 rounded-3xl p-6 text-center">
+                        <div class="text-5xl mb-4">🎤</div>
+                        <div class="font-semibold">Event Outreach</div>
+                        <div class="text-xs text-emerald-400 mt-1">Fill your next webinar</div>
+                    </div>
+                    <div class="bg-zinc-800 rounded-3xl p-6 text-center">
+                        <div class="text-5xl mb-4">💰</div>
+                        <div class="font-semibold">Fundraising</div>
+                        <div class="text-xs text-emerald-400 mt-1">Investor &amp; donor reach</div>
+                    </div>
+                    <div class="bg-zinc-800 rounded-3xl p-6 text-center">
+                        <div class="text-5xl mb-4">📬</div>
+                        <div class="font-semibold">General Outreach</div>
+                        <div class="text-xs text-emerald-400 mt-1">Anything you need</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS (HIGH LEVEL) -->
+    <section id="how" class="bg-white text-zinc-950 py-20">
+        <div class="max-w-screen-2xl mx-auto px-8">
+            <div class="text-center mb-12">
+                <span class="text-cyan-500 font-medium">3 MINUTES TO FIRST EMAIL</span>
+                <h2 class="heading-font text-5xl mt-3">How OutreachX works</h2>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Step 1 -->
+                <div class="step-card bg-white border border-zinc-200 shadow-xl rounded-3xl p-8">
+                    <div class="text-cyan-500 text-5xl mb-6">1️⃣</div>
+                    <h3 class="text-2xl font-semibold mb-2">Connect securely</h3>
+                    <p class="text-zinc-600">OAuth2 or App Password + instant OTP verification via your own inbox. We never store plain passwords.</p>
+                    <div class="mt-8 h-px bg-zinc-200"></div>
+                    <div class="flex justify-between text-xs mt-6">
+                        <div class="flex items-center gap-x-1 text-emerald-500"><i class="fa-solid fa-check"></i> Verified ownership</div>
+                        <div>30 seconds</div>
+                    </div>
+                </div>
+                
+                <!-- Step 2 -->
+                <div class="step-card bg-white border border-zinc-200 shadow-xl rounded-3xl p-8">
+                    <div class="text-cyan-500 text-5xl mb-6">2️⃣</div>
+                    <h3 class="text-2xl font-semibold mb-2">Collect leads</h3>
+                    <p class="text-zinc-600">Upload CSV • Or use our Chrome extension to scrape Google Maps, LinkedIn, directories in 1 click.</p>
+                    <div class="mt-8 flex gap-3">
+                        <div class="flex-1 text-center py-3 bg-zinc-100 rounded-2xl text-sm">📤 CSV Upload</div>
+                        <div class="flex-1 text-center py-3 bg-zinc-100 rounded-2xl text-sm">🔎 Auto-scrape</div>
+                    </div>
+                </div>
+                
+                <!-- Step 3 -->
+                <div class="step-card bg-white border border-zinc-200 shadow-xl rounded-3xl p-8">
+                    <div class="text-cyan-500 text-5xl mb-6">3️⃣</div>
+                    <h3 class="text-2xl font-semibold mb-2">AI does the magic</h3>
+                    <p class="text-zinc-600">Choose use-case → AI writes personalized subject + body using {name}, {company}, {role} variables.</p>
+                    <div class="mt-8 bg-gradient-to-br from-cyan-100 to-white text-zinc-900 p-6 rounded-3xl text-sm font-medium flex items-center gap-x-2">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+                        “Hey {name}, loved your recent post about scaling product-led growth at {company}…”
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- COMPLETE WORKFLOW (DETAILED) -->
+    <section id="workflow" class="max-w-screen-2xl mx-auto px-8 py-20">
+        <div class="text-center mb-16">
+            <h2 class="heading-font text-5xl">The Complete OutreachX Workflow</h2>
+            <p class="text-zinc-400 mt-4">Every step designed for maximum deliverability and zero hassle</p>
+        </div>
+        
+        <div class="relative">
+            <!-- Timeline vertical line -->
+            <div class="absolute left-8 md:left-1/2 top-12 bottom-12 w-1 bg-gradient-to-b from-transparent via-cyan-400 to-transparent hidden md:block"></div>
+            
+            <div class="space-y-16">
+                <!-- Step 1-3 -->
+                <div class="grid md:grid-cols-2 gap-8 md:gap-16 items-center">
+                    <div class="md:text-right order-2 md:order-1">
+                        <div class="inline-flex items-center justify-center w-9 h-9 rounded-2xl bg-cyan-400 text-zinc-950 text-xl font-bold">1</div>
+                        <h3 class="text-3xl font-semibold mt-4">Landing → Secure Onboarding</h3>
+                        <p class="text-zinc-400">Understand cold mail → Click “Start Campaign” → Enter email + App Password (or OAuth)</p>
+                        <div class="text-xs mt-6 bg-white/10 text-cyan-300 inline-flex items-center gap-x-2 px-5 py-2 rounded-3xl">
+                            <i class="fa-solid fa-arrow-right"></i>
+                            Don’t have App Password? We show you Google’s official guide
+                        </div>
+                    </div>
+                    <div class="bg-zinc-900 rounded-3xl p-6 flex items-center justify-center text-6xl order-1 md:order-2">🔑</div>
+                </div>
+                
+                <!-- Step 4-5 -->
+                <div class="grid md:grid-cols-2 gap-8 md:gap-16 items-center">
+                    <div class="bg-zinc-900 rounded-3xl p-6 flex items-center justify-center text-6xl">📧</div>
+                    <div>
+                        <div class="inline-flex items-center justify-center w-9 h-9 rounded-2xl bg-cyan-400 text-zinc-950 text-xl font-bold">2</div>
+                        <h3 class="text-3xl font-semibold mt-4">Credential Verification + Silent Re-Verification</h3>
+                        <p class="text-zinc-400">SMTP test → OTP sent to YOUR email → IMAP confirms ownership (or manual entry for simplicity). Next time? Background verification with decrypted cache.</p>
+                        <div class="mt-4 text-emerald-400 text-sm font-medium flex items-center gap-x-2"><i class="fa-solid fa-check-circle"></i> Zero fake accounts • Zero plain-text passwords</div>
+                    </div>
+                </div>
+                
+                <!-- Step 6-9 -->
+                <div class="grid md:grid-cols-2 gap-8 md:gap-16 items-center">
+                    <div class="md:text-right order-2 md:order-1">
+                        <div class="inline-flex items-center justify-center w-9 h-9 rounded-2xl bg-cyan-400 text-zinc-950 text-xl font-bold">3</div>
+                        <h3 class="text-3xl font-semibold mt-4">Domain Selection + Smart Lead Engine</h3>
+                        <p class="text-zinc-400">Choose use-case (Job / Sales / Networking / Event / Fundraising) → Upload CSV or install Chrome extension to scrape LinkedIn, Google Maps, directories.</p>
+                        <div class="flex gap-x-4 mt-8">
+                            <div class="px-5 py-2 bg-white/10 text-xs rounded-3xl">📍 Delhi • Remote</div>
+                            <div class="px-5 py-2 bg-white/10 text-xs rounded-3xl">Industry: SaaS</div>
+                            <div class="px-5 py-2 bg-white/10 text-xs rounded-3xl">English-speaking countries</div>
+                        </div>
+                    </div>
+                    <div class="bg-zinc-900 rounded-3xl p-6 flex items-center justify-center text-6xl">🧬</div>
+                </div>
+                
+                <!-- Step 10-12 -->
+                <div class="grid md:grid-cols-2 gap-8 md:gap-16 items-center">
+                    <div class="bg-zinc-900 rounded-3xl p-6 flex items-center justify-center text-6xl">✉️</div>
+                    <div>
+                        <div class="inline-flex items-center justify-center w-9 h-9 rounded-2xl bg-cyan-400 text-zinc-950 text-xl font-bold">4</div>
+                        <h3 class="text-3xl font-semibold mt-4">AI Template Builder + Personalization</h3>
+                        <p class="text-zinc-400">Dynamic variables {name} {company} {role} • AI rewrites subject &amp; body • Attach resume or brochure • Smart CTA</p>
+                        <div class="mt-8 text-xs bg-gradient-to-r from-cyan-400/20 to-transparent border border-cyan-400/30 p-6 rounded-3xl">
+                            Subject: “{name}, your work at {company} caught my eye”<br>
+                            Body: Personalized in 0.8 seconds
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 13-14 -->
+                <div class="grid md:grid-cols-2 gap-8 md:gap-16 items-center">
+                    <div class="md:text-right order-2 md:order-1">
+                        <div class="inline-flex items-center justify-center w-9 h-9 rounded-2xl bg-cyan-400 text-zinc-950 text-xl font-bold">5</div>
+                        <h3 class="text-3xl font-semibold mt-4">Bulk Send + Live Dashboard</h3>
+                        <p class="text-zinc-400">Rate limiter (max 50/hour, 500/day) • Queue system • Real-time stats: Sent • Delivered • Replies • Failures</p>
+                        <div class="mt-6 text-sm">Future upgrade: Open &amp; click tracking</div>
+                    </div>
+                    <div class="bg-zinc-900 rounded-3xl p-6 flex items-center justify-center text-6xl">📊</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DEMO VIDEO -->
+    <section id="demo" class="bg-zinc-900 py-20">
+        <div class="max-w-screen-2xl mx-auto px-8">
+            <div class="text-center mb-12">
+                <span class="px-6 py-3 bg-white/10 text-cyan-400 rounded-3xl text-sm font-medium">2-MINUTE DEMO</span>
+                <h2 class="heading-font text-5xl mt-4">See OutreachX in action</h2>
+                <p class="text-zinc-400 mt-3">Watch how we verify credentials, generate AI emails, and send safely</p>
+            </div>
+            
+            <div class="max-w-5xl mx-auto rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative group">
+                <!-- Placeholder video -->
+                <div class="aspect-video bg-black flex items-center justify-center relative">
+                    <div class="text-center">
+                        <div onclick="playFakeVideo(this)" class="demo-video w-20 h-20 mx-auto bg-cyan-400 hover:bg-white rounded-2xl flex items-center justify-center text-4xl text-zinc-950 cursor-pointer shadow-2xl shadow-cyan-500/50">
+                            ▶️
+                        </div>
+                        <p class="text-white mt-6 text-xl font-medium">Play full demo video</p>
+                        <p class="text-zinc-400 text-sm">Secure verification • AI personalization • Bulk delivery</p>
+                    </div>
+                    
+                    <!-- Fake video overlay content -->
+                    <div id="videoOverlay" class="hidden absolute inset-0 bg-black/80 flex items-center justify-center text-white text-2xl">
+                        <div class="text-center">
+                            <i class="fa-solid fa-circle-play text-7xl mb-8 text-cyan-400"></i>
+                            <p class="max-w-xs">In a real product this would play a 2-minute video showing the entire flow.</p>
+                            <button onclick="this.closest('.relative').querySelector('#videoOverlay').classList.add('hidden')" 
+                                    class="mt-12 text-sm border border-white px-8 py-4 rounded-3xl">Close preview</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress bar simulation -->
+                    <div class="absolute bottom-8 left-8 right-8 h-1 bg-white/20 rounded-full hidden md:block">
+                        <div class="h-1 w-1/3 bg-cyan-400 rounded-full"></div>
+                    </div>
+                    <div class="absolute bottom-8 left-8 text-xs text-white/60 hidden md:block">00:42 / 02:18</div>
+                </div>
+            </div>
+            
+            <p class="text-center text-xs text-zinc-500 mt-8">🔒 This demo respects Gmail’s daily limits and uses sandbox credentials</p>
+        </div>
+    </section>
+
+    <!-- SECURITY SECTION -->
+    <section id="security" class="max-w-screen-2xl mx-auto px-8 py-20 bg-gradient-to-b from-transparent to-cyan-400/5">
+        <div class="grid md:grid-cols-12 gap-16 items-center">
+            <div class="md:col-span-5">
+                <h2 class="heading-font text-5xl">Built like a bank.<br>Feels like magic.</h2>
+                <p class="text-zinc-400 mt-8 text-lg">We take security extremely seriously because your reputation is on the line.</p>
+                
+                <div class="mt-12 space-y-8">
+                    <div class="flex gap-x-6">
+                        <i class="fa-solid fa-lock text-3xl text-cyan-400 mt-1"></i>
+                        <div>
+                            <div class="font-semibold">AES-256 Encryption</div>
+                            <div class="text-sm text-zinc-400">Credentials are never stored in plain text. Even we can’t read them.</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-x-6">
+                        <i class="fa-solid fa-key text-3xl text-cyan-400 mt-1"></i>
+                        <div>
+                            <div class="font-semibold">OAuth2 (Recommended)</div>
+                            <div class="text-sm text-zinc-400">Production-ready. No passwords ever touch our servers.</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-x-6">
+                        <i class="fa-solid fa-fingerprint text-3xl text-cyan-400 mt-1"></i>
+                        <div>
+                            <div class="font-semibold">OTP + IMAP Ownership Proof</div>
+                            <div class="text-sm text-zinc-400">You prove you own the email before we send anything.</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-x-6">
+                        <i class="fa-solid fa-shield-halved text-3xl text-cyan-400 mt-1"></i>
+                        <div>
+                            <div class="font-semibold">Rate limiting &amp; abuse prevention</div>
+                            <div class="text-sm text-zinc-400">Gmail’s 500-email daily limit is strictly enforced.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="md:col-span-7">
+                <div class="bg-white/5 border border-white/10 backdrop-blur-3xl rounded-3xl p-8 md:p-14">
+                    <div class="uppercase text-xs tracking-[1px] mb-8 text-center text-cyan-400">Why users trust us</div>
+                    <div class="grid grid-cols-3 gap-px bg-white/10 rounded-3xl overflow-hidden">
+                        <div class="bg-zinc-900 p-8 text-center">
+                            <i class="fa-solid fa-globe text-4xl mb-4"></i>
+                            <div class="font-medium">No data selling</div>
+                        </div>
+                        <div class="bg-zinc-900 p-8 text-center">
+                            <i class="fa-solid fa-eye-slash text-4xl mb-4"></i>
+                            <div class="font-medium">Zero tracking pixels on your behalf</div>
+                        </div>
+                        <div class="bg-zinc-900 p-8 text-center">
+                            <i class="fa-solid fa-server text-4xl mb-4"></i>
+                            <div class="font-medium">EU-compliant data residency</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <div class="max-w-screen-2xl mx-auto px-8 py-16 text-center border-t border-b border-white/10">
+        <h2 class="heading-font text-5xl">Ready to run your first intelligent cold campaign?</h2>
+        <p class="text-2xl text-zinc-400 mt-4">Takes 3 minutes. Zero risk.</p>
+        <button onclick="startCampaignDemo()" 
+                class="mt-10 px-14 py-7 text-2xl bg-gradient-to-r from-cyan-400 to-white text-zinc-950 font-semibold rounded-3xl flex items-center gap-x-4 mx-auto hover:shadow-2xl hover:shadow-cyan-400/40">
+            <span>Launch OutreachX →</span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <p class="text-xs text-zinc-500 mt-8">Free forever for first 500 emails • No credit card needed</p>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-black py-16 border-t border-white/10">
+        <div class="max-w-screen-2xl mx-auto px-8 text-zinc-400 text-sm">
+            <div class="flex flex-wrap justify-between items-center">
+                <div class="flex items-center gap-x-3">
+                    <div class="w-8 h-8 bg-cyan-400 rounded-2xl flex items-center justify-center text-zinc-950 text-2xl">🚀</div>
+                    <div class="heading-font text-3xl text-white">OutreachX</div>
+                </div>
+                <div class="text-xs">© 2026 OutreachX AI • Not real yet, but this landing page is 100% ready to ship</div>
+                <div class="flex gap-x-8">
+                    <a href="#" class="hover:text-white">Product</a>
+                    <a href="#" class="hover:text-white">Security</a>
+                    <a href="#" class="hover:text-white">Blog</a>
+                    <a href="#" class="hover:text-white">Support</a>
+                    <a href="#" class="hover:text-white">Made with ❤️ in India</a>
+                </div>
+            </div>
+            <div class="text-center mt-12 text-[10px] opacity-40">
+                This is a fully functional single-file landing page built exactly to your spec — copy, save as index.html and open in any browser.
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODALS -->
+    <script>
+        function initializeTailwind() {
+            return {
+                config(userConfig = {}) {
+                    return {
+                        content: [],
+                        theme: {
+                            extend: {},
+                        },
+                        plugins: [],
+                        ...userConfig,
+                    }
+                },
+                theme(userConfig = {}) {
+                    return this.defaultTheme ? this.defaultTheme : this.config(userConfig)
+                },
+            }
+        }
+        
+        function startCampaignDemo() {
+            const message = document.createElement('div')
+            message.style.cssText = 'position:fixed; bottom:24px; right:24px; background:#00d4ff; color:#0a0a0a; padding:20px 28px; border-radius:9999px; font-weight:600; box-shadow: 0 25px 50px -12px rgb(0 212 255); z-index:9999; display:flex; align-items:center; gap:12px;'
+            message.innerHTML = `🎉 Campaign flow started!<br><span class="text-sm font-normal">In the real app this would take you to credential verification.</span>`
+            document.body.appendChild(message)
+            
+            setTimeout(() => {
+                message.style.transform = 'translateY(100px)'
+                message.style.opacity = '0'
+                setTimeout(() => message.remove(), 600)
+            }, 3200)
+            
+            // Simulate scroll to workflow
+            document.getElementById('workflow').scrollIntoView({ behavior: 'smooth' })
+        }
+        
+        function showLoginModal() {
+            alert("🔐 Login modal would appear here in the real product.\n\nDemo: You would be redirected to secure OAuth flow.")
+        }
+        
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobileMenu')
+            menu.classList.toggle('hidden')
+        }
+        
+        function playFakeVideo(el) {
+            const overlay = document.getElementById('videoOverlay')
+            overlay.classList.remove('hidden')
+            // Fake video start animation
+            el.innerHTML = '⏳'
+            setTimeout(() => {
+                el.innerHTML = '▶️'
+            }, 1800)
+        }
+        
+        // Auto-initialize Tailwind
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeTailwind()
+            console.log('%c✅ OutreachX landing page loaded successfully!', 'color:#00d4ff; font-size:13px; font-weight:600')
+        })
+    </script>
+</body>
+</html>
