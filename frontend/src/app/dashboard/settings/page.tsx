@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { 
   User, 
@@ -16,6 +17,7 @@ import {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const apiUrl = getApiUrl();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -60,7 +62,7 @@ export default function SettingsPage() {
 
   const fetchProfile = async (token: string) => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/settings/profile", {
+      const res = await fetch(`${apiUrl}/settings/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -86,7 +88,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setSavingProfile(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/settings/profile", {
+      const res = await fetch(`${apiUrl}/settings/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -119,7 +121,7 @@ export default function SettingsPage() {
     setSecError("");
     setSavingPassword(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/settings/change-password/request", {
+      const res = await fetch(`${apiUrl}/settings/change-password/request`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session?.access_token}` }
       });
@@ -139,7 +141,7 @@ export default function SettingsPage() {
     if (!otp) return;
     setSavingPassword(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/settings/change-password/verify", {
+      const res = await fetch(`${apiUrl}/settings/change-password/verify`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -173,7 +175,7 @@ export default function SettingsPage() {
     setEmailError("");
     
     try {
-      const res = await fetch("http://127.0.0.1:8000/settings/app-password/verify", {
+      const res = await fetch(`${apiUrl}/settings/app-password/verify`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

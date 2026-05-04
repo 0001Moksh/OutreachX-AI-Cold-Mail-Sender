@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
   FileSpreadsheet,
@@ -14,6 +15,7 @@ import {
 
 export default function Leads() {
   const router = useRouter();
+  const apiUrl = getApiUrl();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -39,7 +41,7 @@ export default function Leads() {
 
   const fetchLeadFiles = async (token: string) => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/leads", {
+      const res = await fetch(`${apiUrl}/leads`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -75,7 +77,7 @@ export default function Leads() {
       const formData = new FormData();
       formData.append("file", file);
       
-      const res = await fetch("http://127.0.0.1:8000/leads/upload", {
+      const res = await fetch(`${apiUrl}/leads/upload`, {
         method: "POST",
         headers: { 
           Authorization: `Bearer ${session?.access_token}` 
@@ -116,7 +118,7 @@ export default function Leads() {
     if (!confirm("Are you sure you want to delete this lead file?")) return;
     
     try {
-      const res = await fetch(`http://127.0.0.1:8000/leads/${id}`, {
+      const res = await fetch(`${apiUrl}/leads/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${session?.access_token}` }
       });
@@ -135,7 +137,7 @@ export default function Leads() {
     setViewingFile(file);
     setLoadingContent(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/leads/${file.id}/content`, {
+      const res = await fetch(`${apiUrl}/leads/${file.id}/content`, {
         headers: { Authorization: `Bearer ${session?.access_token}` }
       });
       if (res.ok) {

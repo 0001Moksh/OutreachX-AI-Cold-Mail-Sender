@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -35,6 +36,7 @@ interface Template {
 
 export default function TemplatesPage() {
   const router = useRouter();
+  const apiUrl = getApiUrl();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -78,7 +80,7 @@ export default function TemplatesPage() {
 
   const fetchTemplates = async (token: string) => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/templates", {
+      const res = await fetch(`${apiUrl}/templates`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -158,8 +160,8 @@ export default function TemplatesPage() {
     try {
       const isEditing = !!formData.id;
       const url = isEditing 
-        ? `http://127.0.0.1:8000/templates/${formData.id}` 
-        : `http://127.0.0.1:8000/templates`;
+        ? `${apiUrl}/templates/${formData.id}` 
+        : `${apiUrl}/templates`;
       
       const res = await fetch(url, {
         method: isEditing ? "PUT" : "POST",
@@ -188,7 +190,7 @@ export default function TemplatesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this template?")) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/templates/${id}`, {
+      const res = await fetch(`${apiUrl}/templates/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${session?.access_token}` }
       });

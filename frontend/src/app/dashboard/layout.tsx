@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/api";
 import Link from "next/link";
 import {
   LayoutDashboard,
@@ -22,11 +23,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userName, setUserName] = useState<string>("User Profile");
   const router = useRouter();
   const pathname = usePathname();
+  const apiUrl = getApiUrl();
 
   useEffect(() => {
     const fetchProfile = async (token: string) => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/settings/profile", {
+        const res = await fetch(`${apiUrl}/settings/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {

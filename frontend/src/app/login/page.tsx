@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Lock, Mail, ArrowRight, ArrowLeft, KeyRound } from "lucide-react";
@@ -26,9 +27,10 @@ export default function Login() {
     setLoading(true);
     setError(null);
     setMessage(null);
+    const apiUrl = getApiUrl();
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/auth/send-otp", {
+      const res = await fetch(`${apiUrl}/api/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
@@ -53,10 +55,11 @@ export default function Login() {
     setLoading(true);
     setError(null);
     setMessage(null);
+    const apiUrl = getApiUrl();
 
     try {
       // 1. Verify OTP with Backend
-      const res = await fetch("http://127.0.0.1:8000/api/auth/verify-otp", {
+      const res = await fetch(`${apiUrl}/api/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp })

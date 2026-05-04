@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Eye, EyeOff } from 'lucide-react';
+import { getApiUrl } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,9 +15,10 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    const apiUrl = getApiUrl();
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+      const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

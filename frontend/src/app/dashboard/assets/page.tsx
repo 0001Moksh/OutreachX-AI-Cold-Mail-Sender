@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -23,6 +24,7 @@ import Link from "next/link";
 
 export default function Assets() {
   const router = useRouter();
+  const apiUrl = getApiUrl();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -48,7 +50,7 @@ export default function Assets() {
 
   const fetchAssets = async (token: string) => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/assets", {
+      const res = await fetch(`${apiUrl}/assets`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -95,7 +97,7 @@ export default function Assets() {
     
     // 3. Call API
     try {
-      const res = await fetch("http://127.0.0.1:8000/assets", {
+      const res = await fetch(`${apiUrl}/assets`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -153,7 +155,7 @@ export default function Assets() {
       const formData = new FormData();
       formData.append("file", file);
       
-      const res = await fetch("http://127.0.0.1:8000/assets/upload", {
+      const res = await fetch(`${apiUrl}/assets/upload`, {
         method: "POST",
         headers: { 
           Authorization: `Bearer ${session?.access_token}` 
@@ -192,7 +194,7 @@ export default function Assets() {
     
     setUploading(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/assets", {
+      const res = await fetch(`${apiUrl}/assets`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

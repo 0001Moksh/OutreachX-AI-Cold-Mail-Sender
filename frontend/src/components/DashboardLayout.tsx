@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/api';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -26,6 +27,7 @@ export default function DashboardLayout({ children, activeModule = 'overview' }:
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const apiUrl = getApiUrl();
 
   useEffect(() => {
     checkUser();
@@ -42,7 +44,6 @@ export default function DashboardLayout({ children, activeModule = 'overview' }:
 
   const fetchUserProfile = async (token: string) => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
       const response = await fetch(`${apiUrl}/users/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });

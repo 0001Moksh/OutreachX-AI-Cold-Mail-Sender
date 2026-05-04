@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/api';
 import { Plus, Play, Pause, Trash2, Loader, AlertCircle, ChevronRight, CheckCircle2, ChevronLeft, Send, Check } from 'lucide-react';
 
 interface Campaign {
@@ -44,6 +45,7 @@ interface Template {
 }
 
 export default function CampaignsPage() {
+  const apiUrl = getApiUrl();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +77,6 @@ export default function CampaignsPage() {
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [launchingId, setLaunchingId] = useState<string | null>(null);
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
   const fetchCampaigns = useCallback(async () => {
     try {

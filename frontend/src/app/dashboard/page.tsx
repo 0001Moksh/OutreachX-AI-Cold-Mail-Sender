@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -24,6 +25,7 @@ import Link from "next/link";
 
 export default function Dashboard() {
   const router = useRouter();
+  const apiUrl = getApiUrl();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -62,7 +64,7 @@ export default function Dashboard() {
 
   const fetchDashboardData = async (token: string) => {
     try {
-      const statsRes = await fetch("http://127.0.0.1:8000/api/dashboard/stats", {
+      const statsRes = await fetch(`${apiUrl}/api/dashboard/stats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (statsRes.ok) {
@@ -70,7 +72,7 @@ export default function Dashboard() {
         setStats(prev => ({ ...prev, ...statsData }));
       }
       
-      const campaignsRes = await fetch("http://127.0.0.1:8000/api/campaigns", {
+      const campaignsRes = await fetch(`${apiUrl}/api/campaigns`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (campaignsRes.ok) {
@@ -88,7 +90,7 @@ export default function Dashboard() {
     if (!newCampaignName.trim()) return;
     
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/campaigns", {
+      const res = await fetch(`${apiUrl}/api/campaigns`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -111,7 +113,7 @@ export default function Dashboard() {
     if (!emailAddress || !appPassword) return;
     
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/credentials", {
+      const res = await fetch(`${apiUrl}/api/credentials`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -139,7 +141,7 @@ export default function Dashboard() {
     formData.append("file", csvFile);
     
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/campaigns/${selectedCampaign.id}/leads`, {
+      const res = await fetch(`${apiUrl}/api/campaigns/${selectedCampaign.id}/leads`, {
         method: "POST",
         headers: { 
           Authorization: `Bearer ${session.access_token}` 
@@ -163,7 +165,7 @@ export default function Dashboard() {
     if (!selectedCampaign) return;
     
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/campaigns/${selectedCampaign.id}/send`, {
+      const res = await fetch(`${apiUrl}/api/campaigns/${selectedCampaign.id}/send`, {
         method: "POST",
         headers: { 
           Authorization: `Bearer ${session.access_token}` 

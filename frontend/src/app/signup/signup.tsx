@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Loader } from 'lucide-react';
+import { getApiUrl } from '@/lib/api';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -18,9 +19,10 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    const apiUrl = getApiUrl();
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
+      const response = await fetch(`${apiUrl}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, full_name: fullName }),
@@ -44,9 +46,10 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    const apiUrl = getApiUrl();
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-otp`, {
+      const response = await fetch(`${apiUrl}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),
@@ -71,6 +74,7 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    const apiUrl = getApiUrl();
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -79,7 +83,7 @@ export default function SignupPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/set-password`, {
+      const response = await fetch(`${apiUrl}/auth/set-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: userId, password, confirm_password: confirmPassword }),

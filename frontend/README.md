@@ -44,3 +44,5 @@ Set these in Vercel before deploying:
 - `NEXT_PUBLIC_API_URL`
 
 The frontend falls back to safe defaults during build, but auth and backend requests will not work correctly without the real production values.
+
+For local development, keep `NEXT_PUBLIC_API_URL` set to `http://localhost:8000` in `.env.local`. For Vercel, set it to your deployed backend URL in the project environment variables.
