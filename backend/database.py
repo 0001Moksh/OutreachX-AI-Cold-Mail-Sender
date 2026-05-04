@@ -7,20 +7,26 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL must be set in .env")
-
 # Create SQLAlchemy engine
-engine = create_engine(DATABASE_URL)
-
-# Create sessionmaker
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# DATABASE_URL is required at runtime, but we allow missing during import
+# to enable app startup for health checks
+if DATABASE_URL:
+    engine = create_engine(DATABASE_URL)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+else:
+    engine = None
+    SessionLocal = None
 
 # Base class for declarative models
 Base = declarative_base()
 
 # Dependency for FastAPI
 def get_db():
+    if SessionLocal is None:
+        raise RuntimeError(
+            "Database not configured. Please set DATABASE_URL environment variable. "
+            "For Render deployment, add DATABASE_URL to your environment variables."
+        )
     db = SessionLocal()
     try:
         yield db
