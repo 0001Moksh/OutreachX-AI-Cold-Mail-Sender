@@ -42,3 +42,7 @@ yarn-error.log*
 frontend/node_modules/
 frontend/.next/
 frontend/.env.local
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+Untitled.ipynb

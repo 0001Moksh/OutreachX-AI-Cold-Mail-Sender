@@ -11,12 +11,20 @@ import asyncio
 import httpx
 from langchain_groq import ChatGroq
 from langchain_core.embeddings import Embeddings
-from langchain_community.vectorstores import Pinecone
 from langchain_classic.memory import ConversationBufferMemory
 from langchain_classic.chains import ConversationalRetrievalChain
 from langchain_text_splitters import CharacterTextSplitter
-import pinecone
 from pydantic import BaseModel
+
+try:
+    from langchain_community.vectorstores import Pinecone
+except Exception:
+    Pinecone = None
+
+try:
+    import pinecone
+except Exception:
+    pinecone = None
 
 
 class CohereRemoteEmbeddings(Embeddings):
@@ -92,6 +100,7 @@ class OutreachXAI:
         self.pinecone_api_key = os.getenv("PINECONE_API_KEY")
         self.pinecone_env = os.getenv("PINECONE_ENV", "us-west1-gcp")
         self.pinecone_index = os.getenv("PINECONE_INDEX", "outreachx")
+        self.pinecone_available = pinecone is not None and Pinecone is not None
         
         # Initialize LangChain components
         self.llm = ChatGroq(
@@ -106,14 +115,15 @@ class OutreachXAI:
             output_dimension=self.cohere_output_dimension,
         )
         
-        # Initialize Pinecone
-        try:
-            pinecone.init(
-                api_key=self.pinecone_api_key,
-                environment=self.pinecone_env
-            )
-        except:
-            pass  # Already initialized
+        # Initialize Pinecone only when the client is available.
+        if self.pinecone_available and self.pinecone_api_key:
+            try:
+                pinecone.init(
+                    api_key=self.pinecone_api_key,
+                    environment=self.pinecone_env
+                )
+            except Exception:
+                pass  # Optional dependency; keep API startup resilient.
     
     def create_user_context_embedding(
         self,
@@ -123,6 +133,8 @@ class OutreachXAI:
         templates: List[str]
     ) -> str:
         """Create and index user context for RAG"""
+        if not self.pinecone_available:
+            raise RuntimeError("Pinecone is not available in this environment")
         
         # Build context document
         context_doc = f"""
@@ -170,6 +182,13 @@ class OutreachXAI:
         Process user message and return AI response
         """
         try:
+            if not self.pinecone_available:
+                return {
+                    "success": False,
+                    "error": "Pinecone is not available in this environment",
+                    "conversation_id": conversation_id
+                }
+
             # Get user's context namespace
             namespace = f"user_{user_id}"
             

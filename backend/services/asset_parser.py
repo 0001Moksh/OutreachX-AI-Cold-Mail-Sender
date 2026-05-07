@@ -2,7 +2,10 @@ import re
 import io
 import base64
 import requests
-from bs4 import BeautifulSoup
+try:
+    from bs4 import BeautifulSoup
+except Exception:
+    BeautifulSoup = None
 import PyPDF2
 import docx
 
@@ -18,22 +21,26 @@ def parse_website(url: str) -> str:
             if response.status_code == 200:
                 return response.text
         except Exception:
-            pass # Fall back to beautifulsoup
+            pass # Fall back to BeautifulSoup
             
-        # Fallback to BeautifulSoup
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         
-        soup = BeautifulSoup(response.content, "html.parser")
-        
-        # Remove script and style elements
-        for script in soup(["script", "style", "noscript", "header", "footer", "nav"]):
-            script.extract()
+        if BeautifulSoup is not None:
+            soup = BeautifulSoup(response.content, "html.parser")
             
-        text = soup.get_text(separator='\n', strip=True)
+            # Remove script and style elements
+            for script in soup(["script", "style", "noscript", "header", "footer", "nav"]):
+                script.extract()
+                
+            text = soup.get_text(separator='\n', strip=True)
+        else:
+            text = re.sub(r"<script.*?>.*?</script>|<style.*?>.*?</style>", " ", response.text, flags=re.S | re.I)
+            text = re.sub(r"<[^>]+>", " ", text)
+        
         # Clean up excessive newlines
         text = re.sub(r'\n{3,}', '\n\n', text)
         return text
@@ -111,11 +118,15 @@ def parse_docx(file_bytes: bytes) -> str:
 def parse_html(file_bytes: bytes) -> str:
     """Extracts text from HTML file."""
     try:
-        soup = BeautifulSoup(file_bytes, "html.parser")
-        for script in soup(["script", "style"]):
-            script.extract()
-        text = soup.get_text(separator='\n', strip=True)
-        return text
+        if BeautifulSoup is not None:
+            soup = BeautifulSoup(file_bytes, "html.parser")
+            for script in soup(["script", "style"]):
+                script.extract()
+            text = soup.get_text(separator='\n', strip=True)
+            return text
+        text = file_bytes.decode('utf-8', errors='replace')
+        text = re.sub(r"<script.*?>.*?</script>|<style.*?>.*?</style>", " ", text, flags=re.S | re.I)
+        return re.sub(r"<[^>]+>", " ", text)
     except Exception as e:
         print(f"Error parsing HTML file: {e}")
         return ""
