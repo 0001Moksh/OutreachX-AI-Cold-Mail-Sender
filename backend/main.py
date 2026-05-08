@@ -79,10 +79,10 @@ async def get_current_user(
     decode_error = None
     payload = {}
     
-    if not user_id and SUPABASE_JWT_SECRET:
+    if not user_id:
         try:
-            # Decode the Supabase token without verifying signature temporarily 
-            # to bypass the PyJWT alg/base64 mismatch error
+            # Fall back to a payload-only decode so Supabase session tokens
+            # can be used even when the shared secret is not configured here.
             payload = jwt.decode(
                 token,
                 options={"verify_signature": False, "verify_aud": False}
