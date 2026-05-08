@@ -19,6 +19,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Premium Scrollbar */
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Hide textarea scrollbar */
+textarea::-webkit-scrollbar {
+  display: none;
+}
+
+textarea {
+  scrollbar-width: none;
+}
+
 .heading-font {
   font-family: 'Space Grotesk', sans-serif;
 }

@@ -224,166 +224,535 @@ export default function Assets() {
   if (loading) return <div className="h-screen w-full flex items-center justify-center bg-zinc-950 text-white">Loading...</div>;
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a]">
-          
-          <div className="w-full max-w-3xl flex flex-col items-center">
-            <h2 className="text-4xl font-semibold mb-8 tracking-tight bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">
-              Upload Sources for Cold Email Context
-            </h2>
-            
-            {/* The primary input form */}
-            <form onSubmit={handleUrlSubmit} className="w-full relative mb-8">
-              <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400" size={20} />
-              <input 
-                type="text" 
-                value={sourceUrl}
-                onChange={e => setSourceUrl(e.target.value)}
-                placeholder="Enter GitHub Repository URL or Website Link" 
-                className="w-full bg-zinc-900/80 border border-zinc-700/50 hover:border-cyan-400/50 focus:border-cyan-400 rounded-2xl py-4 pl-12 pr-16 text-lg focus:outline-none focus:ring-2 focus:ring-cyan-400/20 transition-all text-zinc-100 placeholder:text-zinc-500 shadow-2xl"
-              />
-              <button 
-                type="submit"
-                disabled={uploading || !sourceUrl.trim()}
-                className="absolute right-3 top-1/2 -translate-y-1/2 bg-cyan-400 text-black px-4 py-1.5 rounded-xl font-medium hover:bg-cyan-300 disabled:opacity-50 transition-colors"
-              >
-                Add
-              </button>
-            </form>
+  <div className="relative flex-1 overflow-hidden bg-[#050505] text-white">
 
-            <div className="w-full bg-zinc-900/30 border border-dashed border-zinc-700/50 rounded-3xl p-10 flex flex-col items-center justify-center relative overflow-hidden group hover:border-cyan-400/50 transition-colors">
-              <div className="absolute inset-0 bg-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              
-              <h3 className="text-xl font-medium text-zinc-300 mb-2 relative z-10">or drop your files</h3>
-              <p className="text-zinc-500 text-sm mb-8 relative z-10">pdf, images, docs, audio, and more</p>
-              
-              <div className="flex items-center gap-4 relative z-10 w-full max-w-lg justify-center">
-                
-                {/* Upload Files Button */}
-                <label className="flex items-center gap-2 px-5 py-3 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/50 rounded-xl cursor-pointer transition-colors shadow-lg">
-                  <Upload size={18} className="text-zinc-300" />
-                  <span className="text-sm font-medium text-zinc-300">Upload files</span>
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    onChange={handleFileUpload} 
-                    accept=".pdf,.doc,.docx,.ppt,.pptx,.html,.htm,.txt,image/*,audio/*"
-                  />
-                </label>
+    {/* Ambient Background */}
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute left-[-10%] top-[10%] h-[500px] w-[500px] rounded-full bg-cyan-500/[0.04] blur-[140px]" />
+      <div className="absolute bottom-[-20%] right-[-10%] h-[500px] w-[500px] rounded-full bg-blue-500/[0.03] blur-[160px]" />
+    </div>
 
-                {/* Websites Button */}
-                <button 
-                  onClick={() => (document.querySelector("input[type='text']") as HTMLInputElement)?.focus()}
-                  className="flex items-center gap-2 px-5 py-3 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/50 rounded-xl transition-colors shadow-lg"
-                >
-                  <Globe size={18} className="text-red-400" />
-                  <span className="text-sm font-medium text-zinc-300">Websites</span>
-                </button>
+    <div className="relative z-10 h-full overflow-y-auto px-6 py-8 md:px-10 scrollbar-none">
 
-                {/* Copied Text Button */}
-                <button 
-                  onClick={() => setShowPasteModal(true)}
-                  className="flex items-center gap-2 px-5 py-3 bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/50 rounded-xl transition-colors shadow-lg"
-                >
-                  <ClipboardPaste size={18} className="text-emerald-400" />
-                  <span className="text-sm font-medium text-zinc-300">Copied text</span>
-                </button>
+      <div className="mx-auto flex w-full max-w-6xl flex-col">
 
-              </div>
-            </div>
-            
-            {/* Assets List Section */}
-            {assets.length > 0 && (
-              <div className="w-full mt-10">
-                <h3 className="text-xl font-medium text-zinc-200 mb-4 flex items-center gap-2">
-                  <Database size={20} className="text-cyan-400" />
-                  Your Assets
-                </h3>
-                <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl overflow-hidden shadow-xl">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-zinc-900/80 text-zinc-400">
-                      <tr>
-                        <th className="px-6 py-4 font-medium">Name / Source</th>
-                        <th className="px-6 py-4 font-medium">Type</th>
-                        <th className="px-6 py-4 font-medium">Status</th>
-                        <th className="px-6 py-4 font-medium text-right">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800/50">
-                      {assets.map((asset) => (
-                        <tr key={asset.id} className="hover:bg-zinc-800/30 transition-colors">
-                          <td className="px-6 py-4">
-                            <p className="font-medium text-zinc-200 truncate max-w-xs" title={asset.name}>
-                              {asset.name}
-                            </p>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-zinc-800 text-zinc-300">
-                              {asset.asset_type === 'github' ? <Globe size={12} className="text-cyan-400"/> : 
-                               asset.asset_type === 'document' ? <FileText size={12} className="text-emerald-400"/> :
-                               <FileBox size={12} className="text-indigo-400"/>}
-                              {asset.asset_type}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            {asset.status === 'pending' ? (
-                              <span className="flex items-center gap-2 text-amber-400 text-xs font-medium">
-                                <div className="w-2 h-2 rounded-full border-2 border-amber-400 border-t-transparent animate-spin"></div>
-                                Extracting...
-                              </span>
-                            ) : asset.status === 'error' ? (
-                              <span className="flex items-center gap-2 text-red-400 text-xs font-medium">
-                                <X size={14} /> Failed
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-2 text-emerald-400 text-xs font-medium">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> Verified
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right text-zinc-500">
-                            {new Date(asset.created_at).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-            
+        {/* Heading */}
+        <div className="mb-10">
+
+          <h1 className="text-4xl font-semibold tracking-tight text-white">
+            Assets Workspace
+          </h1>
+
+          <p className="mt-3 max-w-2xl text-[15px] leading-7 text-zinc-500">
+            Upload repositories, documents, websites, and custom knowledge
+            sources to enhance your AI cold outreach context.
+          </p>
+        </div>
+
+        {/* URL Input */}
+        <form
+          onSubmit={handleUrlSubmit}
+          className="relative mb-8"
+        >
+          <div
+            className="
+              relative
+              overflow-hidden
+              rounded-[28px]
+              border
+              border-white/[0.06]
+              bg-white/[0.03]
+              backdrop-blur-xl
+              shadow-[0_10px_50px_rgba(0,0,0,0.35)]
+            "
+          >
+
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent" />
+
+            <Globe
+              className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-300"
+              size={20}
+            />
+
+            <input
+              type="text"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              placeholder="Paste GitHub repository or website URL..."
+              className="
+                h-[72px]
+                w-full
+                bg-transparent
+                pl-14
+                pr-36
+                text-[15px]
+                text-zinc-100
+                placeholder:text-zinc-500
+                focus:outline-none
+              "
+            />
+
+            <button
+              type="submit"
+              disabled={uploading || !sourceUrl.trim()}
+              className="
+                absolute
+                right-4
+                top-1/2
+                -translate-y-1/2
+                rounded-2xl
+                bg-cyan-400
+                px-5
+                py-2.5
+                text-sm
+                font-medium
+                text-black
+                transition-all
+                hover:bg-cyan-300
+                disabled:cursor-not-allowed
+                disabled:opacity-40
+              "
+            >
+              Add Source
+            </button>
           </div>
-      {/* Paste Modal */}
-      {showPasteModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-2xl shadow-2xl relative">
-            <h2 className="text-xl font-semibold mb-4 text-zinc-100 flex items-center gap-2">
-              <ClipboardPaste size={20} className="text-cyan-400"/>
-              Paste Text Source
+        </form>
+
+        {/* Upload Zone */}
+        <div
+          className="
+            relative
+            overflow-hidden
+            rounded-[34px]
+            border
+            border-white/[0.06]
+            bg-white/[0.02]
+            p-10
+            backdrop-blur-xl
+            shadow-[0_20px_80px_rgba(0,0,0,0.35)]
+          "
+        >
+
+          {/* Ambient */}
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute left-[10%] top-[20%] h-40 w-40 rounded-full bg-cyan-500/[0.04] blur-[80px]" />
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center justify-center">
+
+            <div
+              className="
+                mb-6
+                flex
+                h-16
+                w-16
+                items-center
+                justify-center
+                rounded-3xl
+                border
+                border-cyan-400/10
+                bg-cyan-400/[0.05]
+              "
+            >
+              <Upload
+                size={26}
+                className="text-cyan-300"
+              />
+            </div>
+
+            <h2 className="text-2xl font-semibold text-white">
+              Upload Knowledge Sources
             </h2>
-            <textarea
-              value={pastedText}
-              onChange={(e) => setPastedText(e.target.value)}
-              className="w-full h-64 bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-zinc-200 focus:outline-none focus:border-cyan-400 resize-none font-mono text-sm"
-              placeholder="Paste your source content here..."
-            ></textarea>
-            <div className="flex justify-end gap-3 mt-4">
-              <button 
-                onClick={() => setShowPasteModal(false)}
-                className="px-4 py-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+
+            <p className="mt-3 max-w-xl text-center text-[15px] leading-7 text-zinc-500">
+              Drag and drop files, upload repositories, paste copied content,
+              or connect websites to power AI-generated outreach workflows.
+            </p>
+
+            {/* Actions */}
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+
+              {/* Upload */}
+              <label
+                className="
+                  flex
+                  cursor-pointer
+                  items-center
+                  gap-3
+                  rounded-2xl
+                  border
+                  border-white/[0.08]
+                  bg-white/[0.03]
+                  px-5
+                  py-3
+                  transition-all
+                  hover:bg-white/[0.06]
+                "
               >
-                Cancel
+                <Upload
+                  size={18}
+                  className="text-cyan-300"
+                />
+
+                <span className="text-sm text-zinc-200">
+                  Upload Files
+                </span>
+
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.html,.htm,.txt,image/*,audio/*"
+                />
+              </label>
+
+              {/* Websites */}
+              <button
+                onClick={() =>
+                  (
+                    document.querySelector(
+                      "input[type='text']"
+                    ) as HTMLInputElement
+                  )?.focus()
+                }
+                className="
+                  flex
+                  items-center
+                  gap-3
+                  rounded-2xl
+                  border
+                  border-white/[0.08]
+                  bg-white/[0.03]
+                  px-5
+                  py-3
+                  transition-all
+                  hover:bg-white/[0.06]
+                "
+              >
+                <Globe
+                  size={18}
+                  className="text-blue-300"
+                />
+
+                <span className="text-sm text-zinc-200">
+                  Websites
+                </span>
               </button>
-              <button 
-                onClick={handleTextPaste}
-                disabled={!pastedText.trim() || uploading}
-                className="bg-cyan-400 hover:bg-cyan-300 text-black px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+
+              {/* Paste */}
+              <button
+                onClick={() => setShowPasteModal(true)}
+                className="
+                  flex
+                  items-center
+                  gap-3
+                  rounded-2xl
+                  border
+                  border-white/[0.08]
+                  bg-white/[0.03]
+                  px-5
+                  py-3
+                  transition-all
+                  hover:bg-white/[0.06]
+                "
               >
-                {uploading ? "Saving..." : "Save Text"}
+                <ClipboardPaste
+                  size={18}
+                  className="text-emerald-300"
+                />
+
+                <span className="text-sm text-zinc-200">
+                  Copied Text
+                </span>
               </button>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Assets Table */}
+        {assets.length > 0 && (
+          <div className="mt-10">
+
+            <div className="mb-5 flex items-center gap-3">
+              <Database
+                size={18}
+                className="text-cyan-300"
+              />
+
+              <h3 className="text-lg font-medium text-zinc-200">
+                Connected Assets
+              </h3>
+            </div>
+
+            <div
+              className="
+                overflow-hidden
+                rounded-[30px]
+                border
+                border-white/[0.06]
+                bg-white/[0.03]
+                backdrop-blur-xl
+                shadow-[0_20px_60px_rgba(0,0,0,0.30)]
+              "
+            >
+
+              <table className="w-full text-left">
+
+                <thead className="border-b border-white/[0.06] bg-white/[0.02] text-zinc-500">
+                  <tr>
+                    <th className="px-6 py-5 text-xs font-medium uppercase tracking-[0.2em]">
+                      Source
+                    </th>
+
+                    <th className="px-6 py-5 text-xs font-medium uppercase tracking-[0.2em]">
+                      Type
+                    </th>
+
+                    <th className="px-6 py-5 text-xs font-medium uppercase tracking-[0.2em]">
+                      Status
+                    </th>
+
+                    <th className="px-6 py-5 text-right text-xs font-medium uppercase tracking-[0.2em]">
+                      Created
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {assets.map((asset) => (
+                    <tr
+                      key={asset.id}
+                      className="border-b border-white/[0.04] transition-colors hover:bg-white/[0.02]"
+                    >
+
+                      {/* Name */}
+                      <td className="px-6 py-5">
+
+                        <div className="flex items-center gap-4">
+
+                          <div
+                            className="
+                              flex
+                              h-11
+                              w-11
+                              items-center
+                              justify-center
+                              rounded-2xl
+                              border
+                              border-white/[0.06]
+                              bg-white/[0.03]
+                            "
+                          >
+                            {asset.asset_type === "github" ? (
+                              <Globe
+                                size={16}
+                                className="text-cyan-300"
+                              />
+                            ) : asset.asset_type === "document" ? (
+                              <FileText
+                                size={16}
+                                className="text-emerald-300"
+                              />
+                            ) : (
+                              <FileBox
+                                size={16}
+                                className="text-indigo-300"
+                              />
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="max-w-[420px] truncate text-sm font-medium text-zinc-100">
+                              {asset.name}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Type */}
+                      <td className="px-6 py-5">
+                        <span
+                          className="
+                            rounded-xl
+                            border
+                            border-white/[0.06]
+                            bg-white/[0.03]
+                            px-3
+                            py-1.5
+                            text-xs
+                            text-zinc-300
+                          "
+                        >
+                          {asset.asset_type}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-5">
+
+                        {asset.status === "pending" ? (
+                          <span className="flex items-center gap-2 text-xs text-amber-300">
+                            <div className="h-2 w-2 animate-pulse rounded-full bg-amber-300" />
+                            Processing
+                          </span>
+                        ) : asset.status === "error" ? (
+                          <span className="flex items-center gap-2 text-xs text-red-300">
+                            <X size={14} />
+                            Failed
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2 text-xs text-emerald-300">
+                            <div className="h-2 w-2 rounded-full bg-emerald-300" />
+                            Active
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Date */}
+                      <td className="px-6 py-5 text-right text-sm text-zinc-500">
+                        {new Date(
+                          asset.created_at
+                        ).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
-  );
+
+    {/* Paste Modal */}
+    {showPasteModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
+
+        <div
+          className="
+            relative
+            w-full
+            max-w-3xl
+            overflow-hidden
+            rounded-[32px]
+            border
+            border-white/[0.08]
+            bg-[#0A0A0A]
+            shadow-[0_30px_120px_rgba(0,0,0,0.6)]
+          "
+        >
+
+          <div className="border-b border-white/[0.06] px-7 py-5">
+
+            <div className="flex items-center gap-3">
+
+              <div
+                className="
+                  flex
+                  h-11
+                  w-11
+                  items-center
+                  justify-center
+                  rounded-2xl
+                  border
+                  border-cyan-400/10
+                  bg-cyan-400/[0.05]
+                "
+              >
+                <ClipboardPaste
+                  size={18}
+                  className="text-cyan-300"
+                />
+              </div>
+
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Paste Knowledge Source
+                </h2>
+
+                <p className="text-sm text-zinc-500">
+                  Add custom text content for AI retrieval.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-7">
+
+            <textarea
+              value={pastedText}
+              onChange={(e) =>
+                setPastedText(e.target.value)
+              }
+              placeholder="Paste your source content here..."
+              className="
+                h-[320px]
+                w-full
+                resize-none
+                rounded-2xl
+                border
+                border-white/[0.06]
+                bg-white/[0.02]
+                p-5
+                text-[15px]
+                leading-7
+                text-zinc-200
+                placeholder:text-zinc-500
+                focus:outline-none
+                focus:border-cyan-400/20
+              "
+            />
+
+            <div className="mt-6 flex justify-end gap-3">
+
+              <button
+                onClick={() =>
+                  setShowPasteModal(false)
+                }
+                className="
+                  rounded-2xl
+                  border
+                  border-white/[0.08]
+                  bg-white/[0.03]
+                  px-5
+                  py-2.5
+                  text-sm
+                  text-zinc-300
+                  transition-all
+                  hover:bg-white/[0.06]
+                "
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleTextPaste}
+                disabled={
+                  !pastedText.trim() || uploading
+                }
+                className="
+                  rounded-2xl
+                  bg-cyan-400
+                  px-6
+                  py-2.5
+                  text-sm
+                  font-medium
+                  text-black
+                  transition-all
+                  hover:bg-cyan-300
+                  disabled:cursor-not-allowed
+                  disabled:opacity-40
+                "
+              >
+                {uploading
+                  ? "Saving..."
+                  : "Save Source"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+);
 }
