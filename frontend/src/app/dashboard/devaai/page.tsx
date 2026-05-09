@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getDevaApiUrl } from "@/lib/deva-api";
+import { DynamicWidget } from "@/components/deva/DynamicWidgets";
 
 import {
   Bot,
@@ -107,8 +108,45 @@ export default function DevaPage() {
     []
   );
 
-  const runAction = (action: DevaAction) => {
+  const runAction = async (action: DevaAction) => {
     console.log("Action triggered:", action);
+    try {
+      const response = await fetch(`${apiUrl}/deva/actions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+          action: action.type,
+          payload: action.payload,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Optionally add a message to chat saying it was successful
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: data.message || "Action completed successfully.",
+          },
+        ]);
+      } else {
+        throw new Error(data.message || "Action failed");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `Error: ${err.message}`,
+        },
+      ]);
+    }
   };
 
   const sendMessage = async (text: string) => {
@@ -386,27 +424,40 @@ export default function DevaPage() {
                     </div>
 
                     {entry.actions?.length ? (
-                      <div className="mt-5 flex flex-wrap gap-2">
+                      <div className="mt-5 flex flex-wrap gap-2 w-full">
 
-                        {entry.actions.map((action, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => runAction(action)}
-                            className="
-                              rounded-full
-                              border
-                              border-white/10
-                              bg-white/5
-                              px-4
-                              py-2
-                              text-xs
-                              transition-all
-                              hover:bg-white/10
-                            "
-                          >
-                            {action.label}
-                          </button>
-                        ))}
+                        {entry.actions.map((action, idx) => {
+                          if (action.type.startsWith("widget_")) {
+                            return (
+                              <div key={idx} className="w-full">
+                                <DynamicWidget 
+                                  type={action.type.replace("widget_", "")} 
+                                  payload={action.payload} 
+                                  onAction={runAction} 
+                                />
+                              </div>
+                            );
+                          }
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => runAction(action)}
+                              className="
+                                rounded-full
+                                border
+                                border-white/10
+                                bg-white/5
+                                px-4
+                                py-2
+                                text-xs
+                                transition-all
+                                hover:bg-white/10
+                              "
+                            >
+                              {action.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : null}
                   </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -58,7 +59,7 @@ export default function TemplatesPage() {
   const htmlEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const textEditorRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -76,6 +77,7 @@ export default function TemplatesPage() {
   const [copied, setCopied] = useState(false);
 
   const [tagInput, setTagInput] = useState("");
+  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
 
   const [formData, setFormData] = useState<Partial<Template>>({
     name: "",
@@ -87,20 +89,7 @@ export default function TemplatesPage() {
     variables: {},
   });
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.push("/login");
-      } else {
-        setSession(session);
-        fetchTemplates(session.access_token);
-      }
-
-      setLoading(false);
-    });
-  }, [router]);
-
-  const fetchTemplates = async (token: string) => {
+  const fetchTemplates = useCallback(async (token: string) => {
     try {
       const res = await fetch(`${apiUrl}/templates`, {
         headers: {
@@ -118,7 +107,20 @@ export default function TemplatesPage() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [apiUrl]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.push("/login");
+      } else {
+        setSession(session);
+        fetchTemplates(session.access_token);
+      }
+
+      setLoading(false);
+    });
+  }, [fetchTemplates, router]);
 
   const filteredTemplates = useMemo(() => {
     return templates.filter((t) => {
@@ -257,7 +259,9 @@ export default function TemplatesPage() {
       });
 
       if (res.ok) {
-        await fetchTemplates(session.access_token);
+        if (session?.access_token) {
+          await fetchTemplates(session.access_token);
+        }
 
         setView("list");
       } else {
@@ -334,13 +338,13 @@ export default function TemplatesPage() {
     setView("editor");
   };
 
-  const getPreviewHtml = () => {
+  const getPreviewHtml = (template: Partial<Template> = formData, mode: "html" | "text" = editorMode) => {
     let content =
-      editorMode === "html"
-        ? formData.html_content || ""
-        : formData.text_content || "";
+      mode === "html"
+        ? template.html_content || ""
+        : template.text_content || "";
 
-    if (editorMode === "text") {
+    if (mode === "text") {
       content = content.replace(/\n/g, "<br/>");
     }
 
@@ -355,7 +359,7 @@ export default function TemplatesPage() {
       linkedin: "linkedin.com/in/alexrivera",
     };
 
-    Object.keys(formData.variables || {}).forEach((v) => {
+    Object.keys(template.variables || {}).forEach((v) => {
       const regex = new RegExp(`\\{\\{${v}\\}\\}`, "g");
 
       content = content.replace(
@@ -482,6 +486,14 @@ export default function TemplatesPage() {
 
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
                         <button
+                          onClick={() => setPreviewTemplate(template)}
+                          className="p-2 rounded-xl bg-zinc-800 hover:text-cyan-300"
+                          title="View template"
+                        >
+                          <Eye size={14} />
+                        </button>
+
+                        <button
                           onClick={() =>
                             duplicateTemplate(template)
                           }
@@ -539,6 +551,14 @@ export default function TemplatesPage() {
                         Active
                       </div>
                     </div>
+
+                    <button
+                      onClick={() => setPreviewTemplate(template)}
+                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-medium text-cyan-300 hover:bg-cyan-400/15"
+                    >
+                      <Eye size={16} />
+                      View Preview
+                    </button>
                   </div>
                 ))}
               </div>
@@ -895,6 +915,84 @@ export default function TemplatesPage() {
           </div>
         )}
       </div>
+
+      {previewTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
+          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] border border-zinc-800 bg-[#090909] shadow-[0_30px_120px_rgba(0,0,0,0.7)]">
+            <div className="flex items-start justify-between gap-5 border-b border-zinc-800 bg-zinc-950 px-6 py-5">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {previewTemplate.tags?.slice(0, 4).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-xl bg-zinc-800 px-2 py-1 text-xs text-zinc-300"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+                <h2 className="truncate text-2xl font-semibold text-white">
+                  {previewTemplate.name}
+                </h2>
+                <p className="mt-2 text-sm text-zinc-500">
+                  Subject: {previewTemplate.subject_line || "Untitled Subject Line"}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setPreviewTemplate(null)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#f4f4f5] p-4 sm:p-8">
+              <div className="mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-zinc-200 bg-white shadow-[0_20px_80px_rgba(0,0,0,0.08)]">
+                <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-5">
+                  <h3 className="text-lg font-semibold text-zinc-900">
+                    Subject: {previewTemplate.subject_line || "Untitled Subject Line"}
+                  </h3>
+                  <p className="mt-2 text-sm text-zinc-500">
+                    To: Alex Rivera
+                  </p>
+                </div>
+
+                <div className="px-6 py-8">
+                  <div
+                    className={`max-w-none text-black ${
+                      previewTemplate.html_content ? "" : "whitespace-pre-wrap text-[15px] leading-8 text-gray-800"
+                    }`}
+                    dangerouslySetInnerHTML={{
+                      __html: getPreviewHtml(
+                        previewTemplate,
+                        previewTemplate.html_content ? "html" : "text"
+                      ),
+                    }}
+                  />
+                </div>
+
+                <div className="border-t border-zinc-100 bg-zinc-50 px-6 py-4 text-xs text-zinc-500">
+                  Preview rendered with sample lead data.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-zinc-800 bg-zinc-950 p-5 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => {
+                  openEditor(previewTemplate);
+                  setPreviewTemplate(null);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-black hover:bg-cyan-300"
+              >
+                <Edit2 size={16} />
+                Edit Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

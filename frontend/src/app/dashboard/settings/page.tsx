@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -12,13 +13,15 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  LogOut,
+  Settings
 } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
   const apiUrl = getApiUrl();
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Tabs
@@ -48,19 +51,7 @@ export default function SettingsPage() {
   const [emailStatus, setEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [emailError, setEmailError] = useState("");
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.push("/login");
-      } else {
-        setSession(session);
-        setProfile(prev => ({ ...prev, email: session.user.email || "" }));
-        fetchProfile(session.access_token);
-      }
-    });
-  }, [router]);
-
-  const fetchProfile = async (token: string) => {
+  const fetchProfile = useCallback(async (token: string) => {
     try {
       const res = await fetch(`${apiUrl}/settings/profile`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -82,7 +73,19 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiUrl]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.push("/login");
+      } else {
+        setSession(session);
+        setProfile(prev => ({ ...prev, email: session.user.email || "" }));
+        fetchProfile(session.access_token);
+      }
+    });
+  }, [fetchProfile, router]);
 
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +133,7 @@ export default function SettingsPage() {
       } else {
         setSecError("Failed to request OTP. Try again later.");
       }
-    } catch (err) {
+    } catch {
       setSecError("Network error.");
     } finally {
       setSavingPassword(false);
@@ -159,7 +162,7 @@ export default function SettingsPage() {
       } else {
         setSecError(data.detail || "Invalid or expired OTP");
       }
-    } catch (err) {
+    } catch {
       setSecError("Network error.");
     } finally {
       setSavingPassword(false);
@@ -196,12 +199,19 @@ export default function SettingsPage() {
         setEmailStatus('error');
         setEmailError(data.detail || "Verification failed. Check credentials.");
       }
-    } catch (err) {
+    } catch {
       setEmailStatus('error');
       setEmailError("Network error during verification.");
     } finally {
       setVerifyingEmail(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("user_id");
+    router.replace("/login");
   };
 
   if (loading) {
@@ -213,32 +223,75 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-[#0a0a0a] min-h-screen text-zinc-200">
-      <div className="max-w-5xl mx-auto">
+    <div className="relative min-h-screen flex-1 overflow-y-auto bg-[#050505] p-4 text-zinc-200 sm:p-6 lg:p-8">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:86px_86px] opacity-[0.04]" />
+      <div className="relative z-10 mx-auto max-w-7xl">
         
-        <div className="mb-10">
-          <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
-          <p className="text-zinc-400">Manage your account profile, security, and email integrations.</p>
+        <div className="mb-8 rounded-[32px] border border-white/[0.08] bg-white/[0.035] p-6 sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-300">
+                <Settings size={13} />
+                Account control room
+              </div>
+              <h1 className="heading-font text-4xl font-semibold tracking-tight text-white">
+                Settings
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-zinc-400">
+                Manage profile identity, security, and sending account readiness
+                from one clean workspace.
+              </p>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-400/15 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-300 hover:bg-red-500/15"
+            >
+              <LogOut size={17} />
+              Logout
+            </button>
+          </div>
+
+          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-3xl border border-white/[0.06] bg-black/25 p-5">
+              <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Profile</p>
+              <p className="mt-3 truncate text-lg font-semibold text-white">
+                {profile.full_name || "Not set"}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-white/[0.06] bg-black/25 p-5">
+              <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Email</p>
+              <p className="mt-3 truncate text-lg font-semibold text-white">
+                {profile.email || "Not connected"}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-white/[0.06] bg-black/25 p-5">
+              <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">Sending</p>
+              <p className={`mt-3 text-lg font-semibold ${profile.app_password_verified ? "text-emerald-300" : "text-amber-300"}`}>
+                {profile.app_password_verified ? "Verified" : "Setup needed"}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar */}
-          <div className="w-full md:w-64 space-y-2">
+          <div className="w-full md:w-72 space-y-2 rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-3 self-start">
             <button 
               onClick={() => setActiveTab('profile')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'profile' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-colors ${activeTab === 'profile' ? 'bg-cyan-400 text-black' : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'}`}
             >
               <User size={18} /> Profile
             </button>
             <button 
               onClick={() => setActiveTab('security')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'security' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-colors ${activeTab === 'security' ? 'bg-cyan-400 text-black' : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'}`}
             >
               <Lock size={18} /> Security
             </button>
             <button 
               onClick={() => setActiveTab('email')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === 'email' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'}`}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-colors ${activeTab === 'email' ? 'bg-cyan-400 text-black' : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100'}`}
             >
               <Mail size={18} /> Email Config
             </button>
@@ -249,7 +302,7 @@ export default function SettingsPage() {
             
             {/* PROFILE TAB */}
             {activeTab === 'profile' && (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="bg-white/[0.035] border border-white/[0.08] rounded-[32px] p-6 sm:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <h2 className="text-xl font-semibold text-white mb-6">Profile Information</h2>
                 <form onSubmit={handleProfileSave} className="space-y-5 max-w-md">
                   <div>
@@ -293,7 +346,7 @@ export default function SettingsPage() {
 
             {/* SECURITY TAB */}
             {activeTab === 'security' && (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="bg-white/[0.035] border border-white/[0.08] rounded-[32px] p-6 sm:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <h2 className="text-xl font-semibold text-white mb-6">Change Password</h2>
                 
                 {passwordFlow === 'success' ? (
@@ -383,7 +436,7 @@ export default function SettingsPage() {
 
             {/* EMAIL CONFIG TAB */}
             {activeTab === 'email' && (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="bg-white/[0.035] border border-white/[0.08] rounded-[32px] p-6 sm:p-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-xl font-semibold text-white">App Password Verification</h2>

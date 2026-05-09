@@ -132,6 +132,10 @@ class AssetCreate(BaseModel):
     tags: Optional[List[str]] = None
 
 
+class BulkDeleteRequest(BaseModel):
+    ids: List[str]
+
+
 class AssetResponse(BaseModel):
     id: str
     asset_type: str

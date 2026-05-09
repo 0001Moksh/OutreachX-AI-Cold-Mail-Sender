@@ -16,6 +16,7 @@ import {
   Send,
   Check,
   Sparkles,
+  X,
 } from 'lucide-react';
 
 interface Campaign {
@@ -41,6 +42,7 @@ interface Campaign {
   bounced_count?: number;
   failed_count?: number;
   created_at: string;
+  updated_at?: string;
 }
 
 interface LeadFile {
@@ -95,6 +97,21 @@ export default function CampaignsPage() {
 
   const [verifying, setVerifying] = useState(false);
   const [launchingId, setLaunchingId] = useState<string | null>(null);
+
+  const [viewingCampaign, setViewingCampaign] = useState<Campaign | null>(null);
+
+  const handleEdit = (campaign: Campaign) => {
+    setFormData({
+      id: campaign.id,
+      name: campaign.name,
+      description: campaign.description || '',
+    });
+    setSelectedTemplate(campaign.template_id || '');
+    setSelectedLeadFiles(campaign.lead_ids || []);
+    setMapping(campaign.variable_mapping || {});
+    setStep(1);
+    setShowWizard(true);
+  };
 
   const fetchCampaigns = useCallback(async () => {
     try {
@@ -809,6 +826,12 @@ export default function CampaignsPage() {
                           <p className="text-zinc-400 mt-2">
                             {campaign.description}
                           </p>
+                          <div className="flex gap-4 mt-3 text-xs text-zinc-500">
+                            <span>Created: {new Date(campaign.created_at).toLocaleDateString()}</span>
+                            {campaign.updated_at && (
+                              <span>Modified: {new Date(campaign.updated_at).toLocaleDateString()}</span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-4">
@@ -945,6 +968,18 @@ export default function CampaignsPage() {
                         </div>
 
                         <div className="flex gap-3">
+                          <button
+                            onClick={() => setViewingCampaign(campaign)}
+                            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-xl transition text-sm"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleEdit(campaign)}
+                            className="flex items-center gap-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 px-4 py-2 rounded-xl transition text-sm"
+                          >
+                            Edit
+                          </button>
                           {(campaign.status === 'draft' ||
                             campaign.status ===
                               'paused') && (
@@ -1003,6 +1038,48 @@ export default function CampaignsPage() {
           </>
         )}
       </div>
+
+      {/* VIEW MODAL */}
+      {viewingCampaign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#080808] shadow-[0_30px_120px_rgba(0,0,0,0.65)] p-8 overflow-y-auto">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2">{viewingCampaign.name}</h2>
+                <p className="text-zinc-400 text-sm">{viewingCampaign.description || 'No description provided'}</p>
+              </div>
+              <button onClick={() => setViewingCampaign(null)} className="text-zinc-500 hover:text-white transition">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="bg-zinc-900/50 rounded-2xl p-5 border border-zinc-800">
+                <h3 className="text-cyan-400 font-semibold mb-3">Leads Details</h3>
+                <p className="text-zinc-300 text-sm">Total Leads: <span className="font-medium text-white">{viewingCampaign.total_leads || 0}</span></p>
+              </div>
+              
+              <div className="bg-zinc-900/50 rounded-2xl p-5 border border-zinc-800">
+                <h3 className="text-cyan-400 font-semibold mb-3">Template Details</h3>
+                <p className="text-zinc-300 text-sm">Template ID: <span className="font-medium text-white">{viewingCampaign.template_id || 'None'}</span></p>
+                {viewingCampaign.variable_mapping && Object.keys(viewingCampaign.variable_mapping).length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-zinc-400 text-xs uppercase mb-2">Variable Mapping</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {Object.entries(viewingCampaign.variable_mapping).map(([k, v]) => (
+                        <div key={k} className="flex justify-between bg-black/40 rounded-lg p-2 border border-zinc-800">
+                          <span className="text-cyan-300">{'{{'}{k}{'}}'}</span>
+                          <span className="text-zinc-300">{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

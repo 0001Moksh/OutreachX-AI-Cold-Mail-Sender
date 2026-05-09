@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 
 from .agent import deva_service
 from .auth import get_user_context
@@ -24,6 +26,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class AssetProcessRequest(BaseModel):
+    asset_id: str
+    content: str
+    name: str
+
+def process_asset_embedding(user_id: str, asset_id: str, name: str, content: str):
+    from .vector_store import vector_store
+    try:
+        vector_store.upsert_asset_chunks(user_id=user_id, asset_id=asset_id, asset_name=name, content=content)
+    except Exception as e:
+        print(f"Error processing asset embedding: {e}")
+
+@app.post("/deva/assets/process")
+def process_asset(request: AssetProcessRequest, background_tasks: BackgroundTasks, user: dict = Depends(get_user_context)):
+    background_tasks.add_task(process_asset_embedding, user["user_id"], request.asset_id, request.name, request.content)
+    return {"success": True, "message": "Embedding generation started in background."}
+
 
 
 @app.get("/health")
@@ -103,6 +123,15 @@ async def deva_chat(request: DevaChatRequest, user: dict = Depends(get_user_cont
             suggested_prompts=result.get("suggested_prompts") or [],
         ),
     )
+
+
+@app.post("/deva/chat/stream")
+async def deva_chat_stream(request: DevaChatRequest, user: dict = Depends(get_user_context)):
+    return EventSourceResponse(deva_service.chat_stream(
+        user_id=user["user_id"],
+        message=request.message,
+        conversation_id=request.conversation_id,
+    ))
 
 
 @app.post("/deva/actions", response_model=ActionResponse)

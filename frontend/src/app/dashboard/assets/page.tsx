@@ -1,31 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
-  LayoutDashboard,
-  Mail,
-  Users,
-  Settings,
-  Bell,
-  Search,
-  Bot,
   FileText,
   Database,
   Upload,
   Globe,
   ClipboardPaste,
   FileBox,
-  X
+  X,
+  Eye,
+  CheckCircle2,
+  AlertCircle,
+  Clock3,
+  ExternalLink,
+  Trash2,
 } from "lucide-react";
-import Link from "next/link";
+
+type Asset = {
+  id: string;
+  name: string;
+  asset_type: string;
+  source_type?: string;
+  description?: string;
+  file_url?: string;
+  content?: string;
+  status?: string;
+  is_verified?: boolean;
+  created_at: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+};
 
 export default function Assets() {
   const router = useRouter();
   const apiUrl = getApiUrl();
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   
   const [sourceUrl, setSourceUrl] = useState("");
@@ -33,8 +47,80 @@ export default function Assets() {
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   
-  // Array to hold the assets (both optimistically added and fetched from backend)
-  const [assets, setAssets] = useState<any[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [viewingAsset, setViewingAsset] = useState<Asset | null>(null);
+  const [loadingAsset, setLoadingAsset] = useState(false);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+
+  const getAssetStatus = (asset: Asset) => {
+    const normalized = (asset.status || "").toLowerCase();
+
+    if (["valid", "verified", "success", "active", "completed"].includes(normalized)) {
+      return {
+        label: "Valid",
+        tone: "text-emerald-300 bg-emerald-400/10 border-emerald-400/15",
+        icon: CheckCircle2,
+      };
+    }
+
+    if (["pending", "processing", "queued"].includes(normalized)) {
+      return {
+        label: "Processing",
+        tone: "text-amber-300 bg-amber-400/10 border-amber-400/15",
+        icon: Clock3,
+      };
+    }
+
+    if (["error", "failed", "rejected", "invalid"].includes(normalized)) {
+      return {
+        label: "Needs Review",
+        tone: "text-red-300 bg-red-400/10 border-red-400/15",
+        icon: AlertCircle,
+      };
+    }
+
+    return asset.is_verified
+      ? {
+          label: "Valid",
+          tone: "text-emerald-300 bg-emerald-400/10 border-emerald-400/15",
+          icon: CheckCircle2,
+        }
+      : {
+          label: "Needs Review",
+          tone: "text-amber-300 bg-amber-400/10 border-amber-400/15",
+          icon: AlertCircle,
+        };
+  };
+
+  const summary = useMemo(() => {
+    return assets.reduce(
+      (acc, asset) => {
+        const status = getAssetStatus(asset).label;
+        acc.total += 1;
+        if (status === "Valid") acc.valid += 1;
+        if (status === "Processing") acc.processing += 1;
+        if (status === "Needs Review") acc.needsReview += 1;
+        return acc;
+      },
+      { total: 0, valid: 0, processing: 0, needsReview: 0 }
+    );
+  }, [assets]);
+
+  const fetchAssets = useCallback(async (token: string) => {
+    try {
+      const res = await fetch(`${apiUrl}/assets`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setAssets(Array.isArray(data.data) ? data.data : []);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch assets", err);
+    }
+  }, [apiUrl]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -46,35 +132,16 @@ export default function Assets() {
         setLoading(false);
       }
     });
-  }, [router]);
-
-  const fetchAssets = async (token: string) => {
-    try {
-      const res = await fetch(`${apiUrl}/assets`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          // Add status 'success' to fetched assets for UI
-          const formatted = data.data.map((a: any) => ({ ...a, status: 'success' }));
-          setAssets(formatted);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch assets", err);
-    }
-  };
+  }, [fetchAssets, router]);
 
   const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sourceUrl.trim()) return;
     
     // 1. Validate if it's a URL
-    let url;
     try {
-      url = new URL(sourceUrl);
-    } catch (_) {
+      new URL(sourceUrl);
+    } catch {
       alert("Please enter a valid URL.");
       return;
     }
@@ -112,12 +179,13 @@ export default function Assets() {
       
       if (res.ok) {
         const data = await res.json();
-        // 4. Update to success
         setAssets(prev => prev.map(a => 
-          a.id === tempId ? { ...a, id: data.data.asset_id || data.data.id, status: "success" } : a
+          a.id === tempId
+            ? { ...a, id: data.data.asset_id || data.data.id, status: data.data.status || "processing" }
+            : a
         ));
+        await fetchAssets(session?.access_token || "");
       } else {
-        // 5. Revert/Update to error and show alert
         setAssets(prev => prev.map(a => 
           a.id === tempId ? { ...a, status: "error" } : a
         ));
@@ -165,12 +233,13 @@ export default function Assets() {
       
       if (res.ok) {
         const data = await res.json();
-        // Update to success
         setAssets(prev => prev.map(a => 
-          a.id === tempId ? { ...a, id: data.data.asset_id, status: "success" } : a
+          a.id === tempId
+            ? { ...a, id: data.data.asset_id, status: data.data.status || "processing" }
+            : a
         ));
+        await fetchAssets(session?.access_token || "");
       } else {
-        // Update to error
         setAssets(prev => prev.map(a => 
           a.id === tempId ? { ...a, status: "error" } : a
         ));
@@ -211,6 +280,7 @@ export default function Assets() {
         alert("Text uploaded successfully!");
         setPastedText("");
         setShowPasteModal(false);
+        if (session?.access_token) await fetchAssets(session.access_token);
       } else {
         alert("Failed to upload text.");
       }
@@ -218,6 +288,90 @@ export default function Assets() {
       console.error("Error uploading text:", error);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleViewAsset = async (asset: Asset) => {
+    setViewingAsset(asset);
+
+    if (asset.content) return;
+
+    setLoadingAsset(true);
+    try {
+      const res = await fetch(`${apiUrl}/assets/${asset.id}`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setViewingAsset(data.data);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch asset", err);
+    } finally {
+      setLoadingAsset(false);
+    }
+  };
+
+  const handleDeleteAsset = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this asset?")) return;
+    try {
+      const res = await fetch(`${apiUrl}/assets/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (res.ok) {
+        setAssets((prev) => prev.filter((a) => a.id !== id));
+        setSelectedAssetIds((prev) => prev.filter((v) => v !== id));
+      } else {
+        alert("Failed to delete asset.");
+      }
+    } catch (err) {
+      console.error("Failed to delete asset", err);
+      alert("Error deleting asset.");
+    }
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedAssetIds(assets.map(a => a.id));
+    } else {
+      setSelectedAssetIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedAssetIds(prev => [...prev, id]);
+    } else {
+      setSelectedAssetIds(prev => prev.filter(v => v !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedAssetIds.length) return;
+    if (!confirm(`Are you sure you want to delete ${selectedAssetIds.length} assets?`)) return;
+    
+    try {
+      const res = await fetch(`${apiUrl}/assets/bulk`, {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}` 
+        },
+        body: JSON.stringify({ ids: selectedAssetIds })
+      });
+      if (res.ok) {
+        setAssets(prev => prev.filter(a => !selectedAssetIds.includes(a.id)));
+        setSelectedAssetIds([]);
+      } else {
+        alert("Failed to delete multiple assets.");
+      }
+    } catch (err) {
+      console.error("Failed to bulk delete assets", err);
+      alert("Error deleting multiple assets.");
     }
   };
 
@@ -245,8 +399,30 @@ export default function Assets() {
 
           <p className="mt-3 max-w-2xl text-[15px] leading-7 text-zinc-500">
             Upload repositories, documents, websites, and custom knowledge
-            sources to enhance your AI cold outreach context.
+            sources so Deva and your outreach modules can answer with your
+            actual business context.
           </p>
+        </div>
+
+        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[
+            ["Total Sources", summary.total, "text-cyan-300"],
+            ["Valid", summary.valid, "text-emerald-300"],
+            ["Processing", summary.processing, "text-amber-300"],
+            ["Needs Review", summary.needsReview, "text-red-300"],
+          ].map(([label, value, tone]) => (
+            <div
+              key={String(label)}
+              className="rounded-3xl border border-white/[0.06] bg-white/[0.03] p-5"
+            >
+              <p className="text-xs uppercase tracking-[0.18em] text-zinc-600">
+                {label}
+              </p>
+              <p className={`mt-3 text-3xl font-semibold ${tone}`}>
+                {value}
+              </p>
+            </div>
+          ))}
         </div>
 
         {/* URL Input */}
@@ -473,15 +649,27 @@ export default function Assets() {
         {assets.length > 0 && (
           <div className="mt-10">
 
-            <div className="mb-5 flex items-center gap-3">
-              <Database
-                size={18}
-                className="text-cyan-300"
-              />
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Database
+                  size={18}
+                  className="text-cyan-300"
+                />
 
-              <h3 className="text-lg font-medium text-zinc-200">
-                Connected Assets
-              </h3>
+                <h3 className="text-lg font-medium text-zinc-200">
+                  Knowledge Sources
+                </h3>
+              </div>
+              
+              {selectedAssetIds.length > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-all"
+                >
+                  <Trash2 size={16} />
+                  Delete Selected ({selectedAssetIds.length})
+                </button>
+              )}
             </div>
 
             <div
@@ -500,6 +688,14 @@ export default function Assets() {
 
                 <thead className="border-b border-white/[0.06] bg-white/[0.02] text-zinc-500">
                   <tr>
+                    <th className="w-12 px-6 py-5">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-zinc-950 cursor-pointer"
+                        checked={assets.length > 0 && selectedAssetIds.length === assets.length}
+                        onChange={handleSelectAll}
+                      />
+                    </th>
                     <th className="px-6 py-5 text-xs font-medium uppercase tracking-[0.2em]">
                       Source
                     </th>
@@ -515,16 +711,31 @@ export default function Assets() {
                     <th className="px-6 py-5 text-right text-xs font-medium uppercase tracking-[0.2em]">
                       Created
                     </th>
+
+                    <th className="px-6 py-5 text-right text-xs font-medium uppercase tracking-[0.2em]">
+                      Action
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {assets.map((asset) => (
-                    <tr
-                      key={asset.id}
-                      className="border-b border-white/[0.04] transition-colors hover:bg-white/[0.02]"
-                    >
+                  {assets.map((asset) => {
+                    const status = getAssetStatus(asset);
+                    const StatusIcon = status.icon;
 
+                    return (
+                      <tr
+                        key={asset.id}
+                        className={`border-b border-white/[0.04] transition-colors hover:bg-white/[0.02] ${selectedAssetIds.includes(asset.id) ? 'bg-cyan-500/[0.02]' : ''}`}
+                      >
+                        <td className="w-12 px-6 py-5">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-zinc-950 cursor-pointer"
+                            checked={selectedAssetIds.includes(asset.id)}
+                            onChange={(e) => handleSelectOne(asset.id, e.target.checked)}
+                          />
+                        </td>
                       {/* Name */}
                       <td className="px-6 py-5">
 
@@ -565,6 +776,11 @@ export default function Assets() {
                             <p className="max-w-[420px] truncate text-sm font-medium text-zinc-100">
                               {asset.name}
                             </p>
+                            {asset.file_url && (
+                              <p className="mt-1 max-w-[420px] truncate text-xs text-zinc-600">
+                                {asset.file_url}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -589,23 +805,12 @@ export default function Assets() {
 
                       {/* Status */}
                       <td className="px-6 py-5">
-
-                        {asset.status === "pending" ? (
-                          <span className="flex items-center gap-2 text-xs text-amber-300">
-                            <div className="h-2 w-2 animate-pulse rounded-full bg-amber-300" />
-                            Processing
-                          </span>
-                        ) : asset.status === "error" ? (
-                          <span className="flex items-center gap-2 text-xs text-red-300">
-                            <X size={14} />
-                            Failed
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-2 text-xs text-emerald-300">
-                            <div className="h-2 w-2 rounded-full bg-emerald-300" />
-                            Active
-                          </span>
-                        )}
+                        <span
+                          className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs ${status.tone}`}
+                        >
+                          <StatusIcon size={14} />
+                          {status.label}
+                        </span>
                       </td>
 
                       {/* Date */}
@@ -614,8 +819,28 @@ export default function Assets() {
                           asset.created_at
                         ).toLocaleDateString()}
                       </td>
+
+                      <td className="px-6 py-5 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleViewAsset(asset)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-200 hover:border-cyan-400/30 hover:text-cyan-300"
+                          >
+                            <Eye size={14} />
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAsset(asset.id)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-zinc-200 hover:border-red-400/30 hover:text-red-400"
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -623,6 +848,79 @@ export default function Assets() {
         )}
       </div>
     </div>
+
+    {/* Asset Viewer */}
+    {viewingAsset && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
+        <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#080808] shadow-[0_30px_120px_rgba(0,0,0,0.65)]">
+          <div className="flex items-start justify-between gap-5 border-b border-white/[0.06] px-6 py-5">
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center gap-2">
+                {(() => {
+                  const status = getAssetStatus(viewingAsset);
+                  const StatusIcon = status.icon;
+                  return (
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1 text-xs ${status.tone}`}
+                    >
+                      <StatusIcon size={13} />
+                      {status.label}
+                    </span>
+                  );
+                })()}
+                <span className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1 text-xs text-zinc-400">
+                  {viewingAsset.asset_type}
+                </span>
+              </div>
+              <h2 className="truncate text-2xl font-semibold text-white">
+                {viewingAsset.name}
+              </h2>
+              {viewingAsset.file_url && (
+                <a
+                  href={viewingAsset.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex max-w-full items-center gap-2 truncate text-sm text-cyan-300 hover:text-cyan-200"
+                >
+                  <ExternalLink size={14} />
+                  <span className="truncate">{viewingAsset.file_url}</span>
+                </a>
+              )}
+            </div>
+
+            <button
+              onClick={() => setViewingAsset(null)}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-6">
+            {loadingAsset ? (
+              <div className="flex h-80 items-center justify-center">
+                <div className="h-9 w-9 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+              </div>
+            ) : viewingAsset.content ? (
+              <pre className="whitespace-pre-wrap break-words rounded-3xl border border-white/[0.06] bg-black/40 p-6 text-sm leading-7 text-zinc-300">
+                {viewingAsset.content}
+              </pre>
+            ) : (
+              <div className="rounded-3xl border border-amber-400/15 bg-amber-400/5 p-8 text-amber-200">
+                <div className="mb-3 flex items-center gap-2 font-medium">
+                  <AlertCircle size={18} />
+                  No extracted content available
+                </div>
+                <p className="text-sm leading-7 text-amber-100/70">
+                  This source may still be processing, may have failed parsing,
+                  or may need a valid URL/file so Deva can use it as context.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Paste Modal */}
     {showPasteModal && (

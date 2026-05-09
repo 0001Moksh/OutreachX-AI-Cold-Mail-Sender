@@ -30,8 +30,21 @@ class Settings:
     )
     memory_limit: int = int(os.getenv("DEVA_MEMORY_LIMIT", "8"))
     context_limit: int = int(os.getenv("DEVA_CONTEXT_LIMIT", "5"))
+    pinecone_api_key: str = os.getenv("PINECONE_API_KEY", "")
+    pinecone_host: str = os.getenv("PINECONE_HOST", "")
+    pinecone_index: str = os.getenv("PINECONE_INDEX", "outreachx")
+    huggingface_embedding_model: str = os.getenv("HUGGINGFACE_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+    langchain_tracing_v2: str = os.getenv("LANGCHAIN_TRACING_V2", "false")
+    langchain_api_key: str = os.getenv("LANGCHAIN_API_KEY", "")
+    langchain_project: str = os.getenv("LANGCHAIN_PROJECT", "OutreachX_Deva")
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings()
+    # Auto-configure LangSmith in environment if enabled
+    settings = Settings()
+    if settings.langchain_tracing_v2.lower() == "true" and settings.langchain_api_key:
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
+        os.environ["LANGCHAIN_API_KEY"] = settings.langchain_api_key
+        os.environ["LANGCHAIN_PROJECT"] = settings.langchain_project
+    return settings

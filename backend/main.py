@@ -677,10 +677,57 @@ async def list_assets(
                 "id": str(a.id),
                 "name": a.name,
                 "asset_type": a.asset_type,
+                "source_type": a.source_type,
+                "description": a.description,
+                "file_url": a.file_url,
+                "content": a.content,
+                "status": getattr(a, "status", None) or ("valid" if a.is_verified else "needs_review"),
                 "is_verified": a.is_verified,
                 "created_at": a.created_at
             } for a in assets]
         )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+@app.get("/assets/{asset_id}", response_model=schemas.APIResponse)
+async def get_asset_detail(
+    asset_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get a single asset with stored source content."""
+    try:
+        asset = db.query(models.Asset).filter(
+            models.Asset.id == asset_id,
+            models.Asset.user_id == current_user.id
+        ).first()
+
+        if not asset:
+            raise HTTPException(status_code=404, detail="Asset not found")
+
+        return schemas.APIResponse(
+            success=True,
+            data={
+                "id": str(asset.id),
+                "name": asset.name,
+                "asset_type": asset.asset_type,
+                "source_type": asset.source_type,
+                "description": asset.description,
+                "file_url": asset.file_url,
+                "content": asset.content,
+                "tags": asset.tags,
+                "metadata": asset.asset_metadata,
+                "status": getattr(asset, "status", None) or ("valid" if asset.is_verified else "needs_review"),
+                "is_verified": asset.is_verified,
+                "created_at": asset.created_at,
+                "updated_at": asset.updated_at,
+            }
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -732,6 +779,64 @@ async def upload_asset_file(
             message="File uploaded successfully",
             data={"asset_id": str(asset.id), "file_name": file.filename}
         )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@app.delete("/assets/bulk", response_model=schemas.APIResponse)
+async def bulk_delete_assets(
+    request: schemas.BulkDeleteRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete multiple assets"""
+    try:
+        db.query(models.Asset).filter(
+            models.Asset.id.in_(request.ids),
+            models.Asset.user_id == current_user.id
+        ).delete(synchronize_session=False)
+        db.commit()
+        
+        return schemas.APIResponse(
+            success=True,
+            message=f"Successfully deleted {len(request.ids)} assets"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+@app.delete("/assets/{asset_id}", response_model=schemas.APIResponse)
+async def delete_asset(
+    asset_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a single asset"""
+    try:
+        asset = db.query(models.Asset).filter(
+            models.Asset.id == asset_id,
+            models.Asset.user_id == current_user.id
+        ).first()
+        
+        if not asset:
+            raise HTTPException(status_code=404, detail="Asset not found")
+            
+        db.delete(asset)
+        db.commit()
+        
+        return schemas.APIResponse(
+            success=True,
+            message="Asset deleted successfully"
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(
@@ -1599,7 +1704,11 @@ async def get_assets(
                 "id": str(a.id),
                 "name": a.name,
                 "asset_type": a.asset_type,
+                "source_type": a.source_type,
                 "description": a.description,
+                "file_url": a.file_url,
+                "content": a.content,
+                "status": getattr(a, "status", None) or ("valid" if a.is_verified else "needs_review"),
                 "is_verified": a.is_verified,
                 "created_at": a.created_at
             } for a in assets]
@@ -2512,4 +2621,3 @@ async def verify_app_password(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
