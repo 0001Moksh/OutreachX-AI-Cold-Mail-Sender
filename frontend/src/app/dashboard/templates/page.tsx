@@ -284,6 +284,9 @@ export default function TemplatesPage() {
 
     if (!ok) return;
 
+    // Optimistic UI Update
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+
     try {
       const res = await fetch(`${apiUrl}/templates/${id}`, {
         method: "DELETE",
@@ -292,8 +295,8 @@ export default function TemplatesPage() {
         },
       });
 
-      if (res.ok) {
-        setTemplates((prev) => prev.filter((t) => t.id !== id));
+      if (!res.ok) {
+        alert("Failed to delete template from backend.");
       }
     } catch (err) {
       console.error(err);

@@ -45,6 +45,7 @@ export default function Assets() {
   const [sourceUrl, setSourceUrl] = useState("");
   const [pastedText, setPastedText] = useState("");
   const [showPasteModal, setShowPasteModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -317,16 +318,18 @@ export default function Assets() {
 
   const handleDeleteAsset = async (id: string) => {
     if (!confirm("Are you sure you want to delete this asset?")) return;
+    
+    // Optimistic Update
+    setAssets((prev) => prev.filter((a) => a.id !== id));
+    setSelectedAssetIds((prev) => prev.filter((v) => v !== id));
+
     try {
       const res = await fetch(`${apiUrl}/assets/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
-      if (res.ok) {
-        setAssets((prev) => prev.filter((a) => a.id !== id));
-        setSelectedAssetIds((prev) => prev.filter((v) => v !== id));
-      } else {
-        alert("Failed to delete asset.");
+      if (!res.ok) {
+        alert("Failed to delete asset from backend.");
       }
     } catch (err) {
       console.error("Failed to delete asset", err);
@@ -354,6 +357,11 @@ export default function Assets() {
     if (!selectedAssetIds.length) return;
     if (!confirm(`Are you sure you want to delete ${selectedAssetIds.length} assets?`)) return;
     
+    // Optimistic Update
+    const idsToDelete = [...selectedAssetIds];
+    setAssets(prev => prev.filter(a => !idsToDelete.includes(a.id)));
+    setSelectedAssetIds([]);
+
     try {
       const res = await fetch(`${apiUrl}/assets/bulk`, {
         method: 'DELETE',
@@ -361,13 +369,10 @@ export default function Assets() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session?.access_token}` 
         },
-        body: JSON.stringify({ ids: selectedAssetIds })
+        body: JSON.stringify({ ids: idsToDelete })
       });
-      if (res.ok) {
-        setAssets(prev => prev.filter(a => !selectedAssetIds.includes(a.id)));
-        setSelectedAssetIds([]);
-      } else {
-        alert("Failed to delete multiple assets.");
+      if (!res.ok) {
+        alert("Failed to delete multiple assets from backend.");
       }
     } catch (err) {
       console.error("Failed to bulk delete assets", err);
@@ -426,224 +431,228 @@ export default function Assets() {
         </div>
 
         {/* URL Input */}
-        <form
-          onSubmit={handleUrlSubmit}
-          className="relative mb-8"
-        >
-          <div
-            className="
-              relative
-              overflow-hidden
-              rounded-[28px]
-              border
-              border-white/[0.06]
-              bg-white/[0.03]
-              backdrop-blur-xl
-              shadow-[0_10px_50px_rgba(0,0,0,0.35)]
-            "
-          >
-
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent" />
-
-            <Globe
-              className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-300"
-              size={20}
-            />
-
-            <input
-              type="text"
-              value={sourceUrl}
-              onChange={(e) => setSourceUrl(e.target.value)}
-              placeholder="Paste GitHub repository or website URL..."
-              className="
-                h-[72px]
-                w-full
-                bg-transparent
-                pl-14
-                pr-36
-                text-[15px]
-                text-zinc-100
-                placeholder:text-zinc-500
-                focus:outline-none
-              "
-            />
-
-            <button
-              type="submit"
-              disabled={uploading || !sourceUrl.trim()}
-              className="
-                absolute
-                right-4
-                top-1/2
-                -translate-y-1/2
-                rounded-2xl
-                bg-cyan-400
-                px-5
-                py-2.5
-                text-sm
-                font-medium
-                text-black
-                transition-all
-                hover:bg-cyan-300
-                disabled:cursor-not-allowed
-                disabled:opacity-40
-              "
+        {assets.length === 0 && (
+          <>
+            <form
+              onSubmit={handleUrlSubmit}
+              className="relative mb-8"
             >
-              Add Source
-            </button>
-          </div>
-        </form>
-
-        {/* Upload Zone */}
-        <div
-          className="
-            relative
-            overflow-hidden
-            rounded-[34px]
-            border
-            border-white/[0.06]
-            bg-white/[0.02]
-            p-10
-            backdrop-blur-xl
-            shadow-[0_20px_80px_rgba(0,0,0,0.35)]
-          "
-        >
-
-          {/* Ambient */}
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-[10%] top-[20%] h-40 w-40 rounded-full bg-cyan-500/[0.04] blur-[80px]" />
-          </div>
-
-          <div className="relative z-10 flex flex-col items-center justify-center">
-
-            <div
-              className="
-                mb-6
-                flex
-                h-16
-                w-16
-                items-center
-                justify-center
-                rounded-3xl
-                border
-                border-cyan-400/10
-                bg-cyan-400/[0.05]
-              "
-            >
-              <Upload
-                size={26}
-                className="text-cyan-300"
-              />
-            </div>
-
-            <h2 className="text-2xl font-semibold text-white">
-              Upload Knowledge Sources
-            </h2>
-
-            <p className="mt-3 max-w-xl text-center text-[15px] leading-7 text-zinc-500">
-              Drag and drop files, upload repositories, paste copied content,
-              or connect websites to power AI-generated outreach workflows.
-            </p>
-
-            {/* Actions */}
-            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-
-              {/* Upload */}
-              <label
+              <div
                 className="
-                  flex
-                  cursor-pointer
-                  items-center
-                  gap-3
-                  rounded-2xl
+                  relative
+                  overflow-hidden
+                  rounded-[28px]
                   border
-                  border-white/[0.08]
+                  border-white/[0.06]
                   bg-white/[0.03]
-                  px-5
-                  py-3
-                  transition-all
-                  hover:bg-white/[0.06]
+                  backdrop-blur-xl
+                  shadow-[0_10px_50px_rgba(0,0,0,0.35)]
                 "
               >
-                <Upload
-                  size={18}
-                  className="text-cyan-300"
-                />
 
-                <span className="text-sm text-zinc-200">
-                  Upload Files
-                </span>
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent" />
+
+                <Globe
+                  className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-300"
+                  size={20}
+                />
 
                 <input
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.html,.htm,.txt,image/*,audio/*"
-                />
-              </label>
-
-              {/* Websites */}
-              <button
-                onClick={() =>
-                  (
-                    document.querySelector(
-                      "input[type='text']"
-                    ) as HTMLInputElement
-                  )?.focus()
-                }
-                className="
-                  flex
-                  items-center
-                  gap-3
-                  rounded-2xl
-                  border
-                  border-white/[0.08]
-                  bg-white/[0.03]
-                  px-5
-                  py-3
-                  transition-all
-                  hover:bg-white/[0.06]
-                "
-              >
-                <Globe
-                  size={18}
-                  className="text-blue-300"
+                  type="text"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  placeholder="Paste GitHub repository or website URL..."
+                  className="
+                    h-[72px]
+                    w-full
+                    bg-transparent
+                    pl-14
+                    pr-36
+                    text-[15px]
+                    text-zinc-100
+                    placeholder:text-zinc-500
+                    focus:outline-none
+                  "
                 />
 
-                <span className="text-sm text-zinc-200">
-                  Websites
-                </span>
-              </button>
+                <button
+                  type="submit"
+                  disabled={uploading || !sourceUrl.trim()}
+                  className="
+                    absolute
+                    right-4
+                    top-1/2
+                    -translate-y-1/2
+                    rounded-2xl
+                    bg-cyan-400
+                    px-5
+                    py-2.5
+                    text-sm
+                    font-medium
+                    text-black
+                    transition-all
+                    hover:bg-cyan-300
+                    disabled:cursor-not-allowed
+                    disabled:opacity-40
+                  "
+                >
+                  Add Source
+                </button>
+              </div>
+            </form>
 
-              {/* Paste */}
-              <button
-                onClick={() => setShowPasteModal(true)}
-                className="
-                  flex
-                  items-center
-                  gap-3
-                  rounded-2xl
-                  border
-                  border-white/[0.08]
-                  bg-white/[0.03]
-                  px-5
-                  py-3
-                  transition-all
-                  hover:bg-white/[0.06]
-                "
-              >
-                <ClipboardPaste
-                  size={18}
-                  className="text-emerald-300"
-                />
+            {/* Upload Zone */}
+            <div
+              className="
+                relative
+                overflow-hidden
+                rounded-[34px]
+                border
+                border-white/[0.06]
+                bg-white/[0.02]
+                p-10
+                backdrop-blur-xl
+                shadow-[0_20px_80px_rgba(0,0,0,0.35)]
+              "
+            >
 
-                <span className="text-sm text-zinc-200">
-                  Copied Text
-                </span>
-              </button>
+              {/* Ambient */}
+              <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-[10%] top-[20%] h-40 w-40 rounded-full bg-cyan-500/[0.04] blur-[80px]" />
+              </div>
+
+              <div className="relative z-10 flex flex-col items-center justify-center">
+
+                <div
+                  className="
+                    mb-6
+                    flex
+                    h-16
+                    w-16
+                    items-center
+                    justify-center
+                    rounded-3xl
+                    border
+                    border-cyan-400/10
+                    bg-cyan-400/[0.05]
+                  "
+                >
+                  <Upload
+                    size={26}
+                    className="text-cyan-300"
+                  />
+                </div>
+
+                <h2 className="text-2xl font-semibold text-white">
+                  Upload Knowledge Sources
+                </h2>
+
+                <p className="mt-3 max-w-xl text-center text-[15px] leading-7 text-zinc-500">
+                  Drag and drop files, upload repositories, paste copied content,
+                  or connect websites to power AI-generated outreach workflows.
+                </p>
+
+                {/* Actions */}
+                <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+
+                  {/* Upload */}
+                  <label
+                    className="
+                      flex
+                      cursor-pointer
+                      items-center
+                      gap-3
+                      rounded-2xl
+                      border
+                      border-white/[0.08]
+                      bg-white/[0.03]
+                      px-5
+                      py-3
+                      transition-all
+                      hover:bg-white/[0.06]
+                    "
+                  >
+                    <Upload
+                      size={18}
+                      className="text-cyan-300"
+                    />
+
+                    <span className="text-sm text-zinc-200">
+                      Upload Files
+                    </span>
+
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      accept=".pdf,.doc,.docx,.ppt,.pptx,.html,.htm,.txt,image/*,audio/*"
+                    />
+                  </label>
+
+                  {/* Websites */}
+                  <button
+                    onClick={() =>
+                      (
+                        document.querySelector(
+                          "input[type='text']"
+                        ) as HTMLInputElement
+                      )?.focus()
+                    }
+                    className="
+                      flex
+                      items-center
+                      gap-3
+                      rounded-2xl
+                      border
+                      border-white/[0.08]
+                      bg-white/[0.03]
+                      px-5
+                      py-3
+                      transition-all
+                      hover:bg-white/[0.06]
+                    "
+                  >
+                    <Globe
+                      size={18}
+                      className="text-blue-300"
+                    />
+
+                    <span className="text-sm text-zinc-200">
+                      Websites
+                    </span>
+                  </button>
+
+                  {/* Paste */}
+                  <button
+                    onClick={() => setShowPasteModal(true)}
+                    className="
+                      flex
+                      items-center
+                      gap-3
+                      rounded-2xl
+                      border
+                      border-white/[0.08]
+                      bg-white/[0.03]
+                      px-5
+                      py-3
+                      transition-all
+                      hover:bg-white/[0.06]
+                    "
+                  >
+                    <ClipboardPaste
+                      size={18}
+                      className="text-emerald-300"
+                    />
+
+                    <span className="text-sm text-zinc-200">
+                      Copied Text
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {/* Assets Table */}
         {assets.length > 0 && (
@@ -661,15 +670,25 @@ export default function Assets() {
                 </h3>
               </div>
               
-              {selectedAssetIds.length > 0 && (
+              <div className="flex items-center gap-3">
+                {selectedAssetIds.length > 0 && (
+                  <button
+                    onClick={handleBulkDelete}
+                    className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-all"
+                  >
+                    <Trash2 size={16} />
+                    Delete Selected ({selectedAssetIds.length})
+                  </button>
+                )}
+                
                 <button
-                  onClick={handleBulkDelete}
-                  className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-all"
+                  onClick={() => setShowUploadModal(true)}
+                  className="flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-medium text-black hover:bg-cyan-300 transition-all"
                 >
-                  <Trash2 size={16} />
-                  Delete Selected ({selectedAssetIds.length})
+                  <Upload size={16} />
+                  Upload More
                 </button>
-              )}
+              </div>
             </div>
 
             <div
@@ -848,6 +867,253 @@ export default function Assets() {
         )}
       </div>
     </div>
+
+    {/* Upload Modal */}
+    {showUploadModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
+        <div className="relative w-full max-w-4xl p-2 rounded-[32px] overflow-hidden">
+          <button
+            onClick={() => setShowUploadModal(false)}
+            className="absolute top-4 right-4 z-50 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.08] bg-black/50 text-zinc-400 hover:text-white"
+          >
+            <X size={18} />
+          </button>
+          {(() => {
+            return (
+              <div className="space-y-8 w-full">
+              {/* URL Input */}
+              <form
+                onSubmit={(e) => {
+                  handleUrlSubmit(e);
+                  if (sourceUrl.trim()) setShowUploadModal(false);
+                }}
+                className="relative"
+              >
+                <div
+                  className="
+                    relative
+                    overflow-hidden
+                    rounded-[28px]
+                    border
+                    border-white/[0.06]
+                    bg-[#0A0A0A]
+                    backdrop-blur-xl
+                    shadow-[0_10px_50px_rgba(0,0,0,0.35)]
+                  "
+                >
+
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent" />
+
+                  <Globe
+                    className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-300"
+                    size={20}
+                  />
+
+                  <input
+                    type="text"
+                    value={sourceUrl}
+                    onChange={(e) => setSourceUrl(e.target.value)}
+                    placeholder="Paste GitHub repository or website URL..."
+                    className="
+                      h-[72px]
+                      w-full
+                      bg-transparent
+                      pl-14
+                      pr-36
+                      text-[15px]
+                      text-zinc-100
+                      placeholder:text-zinc-500
+                      focus:outline-none
+                    "
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={uploading || !sourceUrl.trim()}
+                    className="
+                      absolute
+                      right-4
+                      top-1/2
+                      -translate-y-1/2
+                      rounded-2xl
+                      bg-cyan-400
+                      px-5
+                      py-2.5
+                      text-sm
+                      font-medium
+                      text-black
+                      transition-all
+                      hover:bg-cyan-300
+                      disabled:cursor-not-allowed
+                      disabled:opacity-40
+                    "
+                  >
+                    Add Source
+                  </button>
+                </div>
+              </form>
+
+              {/* Upload Zone */}
+              <div
+                className="
+                  relative
+                  overflow-hidden
+                  rounded-[34px]
+                  border
+                  border-white/[0.06]
+                  bg-[#0A0A0A]
+                  p-10
+                  backdrop-blur-xl
+                  shadow-[0_20px_80px_rgba(0,0,0,0.35)]
+                "
+              >
+
+                {/* Ambient */}
+                <div className="pointer-events-none absolute inset-0">
+                  <div className="absolute left-[10%] top-[20%] h-40 w-40 rounded-full bg-cyan-500/[0.04] blur-[80px]" />
+                </div>
+
+                <div className="relative z-10 flex flex-col items-center justify-center">
+
+                  <div
+                    className="
+                      mb-6
+                      flex
+                      h-16
+                      w-16
+                      items-center
+                      justify-center
+                      rounded-3xl
+                      border
+                      border-cyan-400/10
+                      bg-cyan-400/[0.05]
+                    "
+                  >
+                    <Upload
+                      size={26}
+                      className="text-cyan-300"
+                    />
+                  </div>
+
+                  <h2 className="text-2xl font-semibold text-white">
+                    Upload Knowledge Sources
+                  </h2>
+
+                  <p className="mt-3 max-w-xl text-center text-[15px] leading-7 text-zinc-500">
+                    Drag and drop files, upload repositories, paste copied content,
+                    or connect websites to power AI-generated outreach workflows.
+                  </p>
+
+                  {/* Actions */}
+                  <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+
+                    {/* Upload */}
+                    <label
+                      className="
+                        flex
+                        cursor-pointer
+                        items-center
+                        gap-3
+                        rounded-2xl
+                        border
+                        border-white/[0.08]
+                        bg-white/[0.03]
+                        px-5
+                        py-3
+                        transition-all
+                        hover:bg-white/[0.06]
+                      "
+                    >
+                      <Upload
+                        size={18}
+                        className="text-cyan-300"
+                      />
+
+                      <span className="text-sm text-zinc-200">
+                        Upload Files
+                      </span>
+
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => {
+                          handleFileUpload(e);
+                          setShowUploadModal(false);
+                        }}
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.html,.htm,.txt,image/*,audio/*"
+                      />
+                    </label>
+
+                    {/* Websites */}
+                    <button
+                      onClick={() => {
+                        setShowUploadModal(false);
+                        (
+                          document.querySelector(
+                            "input[type='text']"
+                          ) as HTMLInputElement
+                        )?.focus();
+                      }}
+                      className="
+                        flex
+                        items-center
+                        gap-3
+                        rounded-2xl
+                        border
+                        border-white/[0.08]
+                        bg-white/[0.03]
+                        px-5
+                        py-3
+                        transition-all
+                        hover:bg-white/[0.06]
+                      "
+                    >
+                      <Globe
+                        size={18}
+                        className="text-indigo-300"
+                      />
+                      <span className="text-sm text-zinc-200">
+                        Websites
+                      </span>
+                    </button>
+
+                    {/* Paste */}
+                    <button
+                      onClick={() => {
+                        setShowUploadModal(false);
+                        setShowPasteModal(true);
+                      }}
+                      className="
+                        flex
+                        items-center
+                        gap-3
+                        rounded-2xl
+                        border
+                        border-white/[0.08]
+                        bg-white/[0.03]
+                        px-5
+                        py-3
+                        transition-all
+                        hover:bg-white/[0.06]
+                      "
+                    >
+                      <ClipboardPaste
+                        size={18}
+                        className="text-emerald-300"
+                      />
+                      <span className="text-sm text-zinc-200">
+                        Paste Text
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            );
+          })()}
+        </div>
+      </div>
+    )}
 
     {/* Asset Viewer */}
     {viewingAsset && (

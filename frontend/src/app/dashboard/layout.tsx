@@ -57,8 +57,8 @@ export default function DashboardLayout({
             setUserEmail(data.data.email || "");
           }
         }
-      } catch (err) {
-        console.error("Failed to fetch profile", err);
+      } catch (err: any) {
+        // Silently handle fetch errors if backend is not available
       }
     };
 

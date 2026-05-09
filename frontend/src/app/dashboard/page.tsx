@@ -84,11 +84,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchJson = async (url: string, token: string) => {
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return null;
-      return res.json();
+      try {
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return null;
+        return res.json();
+      } catch (err) {
+        // Silently handle fetch errors if backend is not available
+        return null;
+      }
     };
 
     const hydrateDashboard = async () => {
@@ -123,7 +128,7 @@ export default function Dashboard() {
         setLeadFiles(leadsRes?.data || []);
         setAssets(assetsRes?.data || []);
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
+        // Silently handle fetch errors if backend is not available
       } finally {
         setLoading(false);
       }

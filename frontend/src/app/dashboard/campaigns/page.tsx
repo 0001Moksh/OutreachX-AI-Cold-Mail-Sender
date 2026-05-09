@@ -276,18 +276,29 @@ export default function CampaignsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete campaign?')) return;
 
+    // Optimistic UI Update
+    setCampaigns(prev => prev.filter(c => c.id !== id));
+
     const token = (
       await supabase.auth.getSession()
     ).data.session?.access_token;
 
-    await fetch(`${apiUrl}/campaigns/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    try {
+      const res = await fetch(`${apiUrl}/campaigns/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    fetchCampaigns();
+      if (!res.ok) {
+        alert('Failed to delete campaign from backend.');
+        fetchCampaigns(); // Revert
+      }
+    } catch (err) {
+      alert('Error deleting campaign.');
+      fetchCampaigns(); // Revert
+    }
   };
 
   const handlePause = async (id: string) => {

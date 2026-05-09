@@ -112,12 +112,12 @@ export default function Leads() {
           prev.map((a) =>
             a.id === tempId
               ? {
-                  ...a,
-                  id: data.data.lead_id,
-                  file_name: data.data.file_name,
-                  status: "success",
-                  columns: data.data.columns,
-                }
+                ...a,
+                id: data.data.lead_id,
+                file_name: data.data.file_name,
+                status: "success",
+                columns: data.data.columns,
+              }
               : a
           )
         );
@@ -126,9 +126,9 @@ export default function Leads() {
           prev.map((a) =>
             a.id === tempId
               ? {
-                  ...a,
-                  status: "error",
-                }
+                ...a,
+                status: "error",
+              }
               : a
           )
         );
@@ -142,9 +142,9 @@ export default function Leads() {
         prev.map((a) =>
           a.id === tempId
             ? {
-                ...a,
-                status: "error",
-              }
+              ...a,
+              status: "error",
+            }
             : a
         )
       );
@@ -161,6 +161,11 @@ export default function Leads() {
 
     if (!ok) return;
 
+    // Optimistic UI Update
+    setLeadFiles((prev) =>
+      prev.filter((f) => f.id !== id)
+    );
+
     try {
       const res = await fetch(`${apiUrl}/leads/${id}`, {
         method: "DELETE",
@@ -169,13 +174,12 @@ export default function Leads() {
         },
       });
 
-      if (res.ok) {
-        setLeadFiles((prev) =>
-          prev.filter((f) => f.id !== id)
-        );
+      if (!res.ok) {
+        alert("Failed to delete lead from backend.");
       }
     } catch (err) {
       console.error(err);
+      alert("Error deleting lead.");
     }
   };
 
@@ -304,18 +308,7 @@ export default function Leads() {
               {/* Section Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-                    <Users
-                      size={22}
-                      className="text-cyan-400"
-                    />
-                  </div>
-
                   <div>
-                    <h2 className="text-2xl font-semibold">
-                      Uploaded Lead Lists
-                    </h2>
-
                     <p className="text-zinc-500 text-sm">
                       {leadFiles.length} files available
                     </p>
@@ -525,7 +518,7 @@ export default function Leads() {
                               title={String(row[col] || "")}
                             >
                               {row[col] !== null &&
-                              row[col] !== undefined ? (
+                                row[col] !== undefined ? (
                                 String(row[col])
                               ) : (
                                 <span className="text-zinc-700">
