@@ -25,7 +25,7 @@ class Settings:
     allowed_origins: list[str] = tuple(
         _csv_env(
             "ALLOWED_ORIGINS",
-            "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001",
+            "https://outreachx-deva-backend-url-lkjhgfds.vercel.app,https://outreachx-deva.vercel.app,http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001",
         )
     )
     memory_limit: int = int(os.getenv("DEVA_MEMORY_LIMIT", "8"))

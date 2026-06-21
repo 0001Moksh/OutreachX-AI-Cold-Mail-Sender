@@ -46,6 +46,8 @@ from tasks import send_campaign_emails, celery_app
 
 load_dotenv()
 
+from fastapi.openapi.utils import get_openapi
+
 # ==================== APP SETUP ====================
 app = FastAPI(
     title="OutreachX API",
@@ -53,12 +55,44 @@ app = FastAPI(
     version="2.0.0",
 )
 
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    # Add HTTPBearer security scheme so the Authorize button appears in /docs
+    schema.setdefault("components", {}).setdefault("securitySchemes", {})["BearerAuth"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+    }
+    # Apply it globally to all endpoints
+    schema["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
 # CORS Configuration
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")
+# allowed_origins = os.getenv("ALLOWED_ORIGINS", "https://outreachx-deva-backend-url-lkjhgfds.vercel.app,https://outreachx-deva.vercel.app,http://localhost:3000").split(",")
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=allowed_origins,
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -1693,165 +1727,7 @@ async def list_campaign_tasks(
         )
 
 
-# ==================== ASSETS ENDPOINTS ====================
-@app.get("/assets", response_model=schemas.APIResponse)
-async def get_assets(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get user's assets"""
-    try:
-        assets = db.query(models.Asset).filter(
-            models.Asset.user_id == current_user.id
-        ).order_by(models.Asset.created_at.desc()).all()
-        
-        return schemas.APIResponse(
-            success=True,
-            data=[{
-                "id": str(a.id),
-                "name": a.name,
-                "asset_type": a.asset_type,
-                "source_type": a.source_type,
-                "description": a.description,
-                "file_url": a.file_url,
-                "content": a.content,
-                "status": getattr(a, "status", None) or ("valid" if a.is_verified else "needs_review"),
-                "is_verified": a.is_verified,
-                "created_at": a.created_at
-            } for a in assets]
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/assets", response_model=schemas.APIResponse)
-async def create_asset(
-    request: schemas.AssetCreate,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Create a new asset (link, github, text)"""
-    try:
-        asset = models.Asset(
-            id=uuid.uuid4(),
-            user_id=current_user.id,
-            asset_type=request.asset_type,
-            source_type=request.source_type,
-            name=request.name,
-            description=request.description,
-            file_url=request.file_url,
-            content=request.content,
-            tags=request.tags,
-            created_at=datetime.utcnow()
-        )
-        db.add(asset)
-        db.commit()
-        return schemas.APIResponse(success=True, data={"asset_id": str(asset.id)})
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/assets/upload", response_model=schemas.APIResponse)
-async def upload_asset(
-    file: UploadFile = File(...),
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Upload a document asset"""
-    try:
-        content = await file.read()
-        asset = models.Asset(
-            id=uuid.uuid4(),
-            user_id=current_user.id,
-            asset_type="document",
-            name=file.filename,
-            created_at=datetime.utcnow()
-        )
-        db.add(asset)
-        db.commit()
-        return schemas.APIResponse(success=True, data={"asset_id": str(asset.id)})
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ==================== LEADS ENDPOINTS ====================
-@app.get("/leads", response_model=schemas.APIResponse)
-async def list_leads(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """List user leads (files)"""
-    try:
-        leads = db.query(models.Lead).filter(
-            models.Lead.user_id == current_user.id
-        ).order_by(models.Lead.created_at.desc()).all()
-        
-        return schemas.APIResponse(
-            success=True,
-            data=[{
-                "id": str(lead.id),
-                "campaign_id": str(lead.campaign_id) if lead.campaign_id else None,
-                "file_name": lead.file_name,
-                "columns": lead.columns or [],
-                "created_at": lead.created_at
-            } for lead in leads]
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/leads/upload", response_model=schemas.APIResponse)
-async def upload_leads(
-    file: UploadFile = File(...),
-    campaign_id: Optional[str] = Form(None),
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Upload leads from Excel/CSV"""
-    try:
-        content = await file.read()
-        
-        # Parse file
-        if file.filename.endswith('.csv'):
-            df = pd.read_csv(io.BytesIO(content))
-        else:
-            df = pd.read_excel(io.BytesIO(content))
-            
-        columns = list(df.columns)
-        
-        # Clean NaNs and convert to dicts
-        df = df.fillna('')
-        records = df.to_dict(orient='records')
-        
-        lead_file = models.Lead(
-            id=uuid.uuid4(),
-            user_id=current_user.id,
-            campaign_id=campaign_id,
-            file_name=file.filename,
-            content=records,
-            columns=columns,
-            created_at=datetime.utcnow()
-        )
-        db.add(lead_file)
-        
-        if campaign_id:
-            campaign = db.query(models.Campaign).filter(models.Campaign.id == campaign_id).first()
-            if campaign:
-                campaign.total_leads += len(records)
-                
-        db.commit()
-        
-        return schemas.APIResponse(
-            success=True,
-            message=f"Uploaded {len(records)} leads",
-            data={
-                "lead_id": str(lead_file.id),
-                "file_name": lead_file.file_name,
-                "columns": lead_file.columns
-            }
-        )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+# (Duplicate /assets and /leads blocks removed — canonical versions are defined above at lines ~619 and ~909)
 
 
 # ==================== AI CHAT ENDPOINTS ====================
