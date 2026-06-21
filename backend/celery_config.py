@@ -6,9 +6,26 @@ Advanced task queue settings with beat scheduler
 from datetime import timedelta
 from kombu import Exchange, Queue
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # Broker and Result Backend
-broker_url = "redis://localhost:6379/0"
-result_backend = "redis://localhost:6379/0"
+broker_url = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+
+# Enforce RESP2 protocol (protocol=2) for compatibility with Redis 5.x
+broker_transport_options = {
+    "client_connection_options": {
+        "protocol": 2
+    }
+}
+result_backend_transport_options = {
+    "client_connection_options": {
+        "protocol": 2
+    }
+}
 
 # Task Settings
 task_serializer = "json"

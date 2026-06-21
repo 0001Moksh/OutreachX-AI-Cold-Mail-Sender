@@ -16,6 +16,13 @@ from email_service import EmailService
 from db_service import DatabaseService
 from security import decrypt_credential
 
+# Monkeypatch redis-py to default to RESP2 (protocol=2) globally
+# to avoid 'unknown command HELLO' errors with older Redis servers (Redis 5.x)
+import redis.connection
+import redis.utils
+redis.connection.DEFAULT_RESP_VERSION = 2
+redis.utils.DEFAULT_RESP_VERSION = 2
+
 load_dotenv()
 
 # Setup logging
@@ -116,7 +123,20 @@ def send_campaign_emails(self, campaign_id: str):
                 return {"success": True, "message": "Campaign paused during execution"}
 
             lead = all_leads[index]
-            lead_email = lead.get("email") or lead.get("Email")
+            
+            # Dynamically extract email address by searching keys for 'email' or 'e-mail'
+            lead_email = None
+            for key, val in lead.items():
+                if key.lower() == "email" and val:
+                    lead_email = str(val).strip()
+                    break
+            if not lead_email:
+                for key, val in lead.items():
+                    k = key.lower()
+                    if ("email" in k or "e-mail" in k) and val:
+                        lead_email = str(val).strip()
+                        break
+                        
             if not lead_email:
                 failed_count += 1
                 campaign.last_processed_index = index + 1

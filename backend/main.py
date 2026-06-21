@@ -17,6 +17,13 @@ from typing import Optional, List
 from email.message import EmailMessage
 from email.header import decode_header
 
+# Monkeypatch redis-py to default to RESP2 (protocol=2) globally
+# to avoid 'unknown command HELLO' errors with older Redis servers (Redis 5.x)
+import redis.connection
+import redis.utils
+redis.connection.DEFAULT_RESP_VERSION = 2
+redis.utils.DEFAULT_RESP_VERSION = 2
+
 from fastapi import FastAPI, Depends, HTTPException, status, Request, File, UploadFile, BackgroundTasks, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -2611,6 +2618,32 @@ async def verify_app_password(
         encrypted_pass = encrypt_credential(req.app_password)
         current_user.encrypted_app_password = encrypted_pass
         current_user.app_password_verified = True
+        
+        # Ensure verified EmailCredential record exists and is synced
+        email_cred = db.query(models.EmailCredential).filter(
+            models.EmailCredential.user_id == current_user.id,
+            models.EmailCredential.email_address == current_user.email
+        ).first()
+        
+        if not email_cred:
+            email_cred = models.EmailCredential(
+                id=uuid.uuid4(),
+                user_id=current_user.id,
+                email_address=current_user.email,
+                encrypted_password=encrypted_pass,
+                provider=req.provider,
+                is_verified=True,
+                verification_method="imap",
+                verified_at=datetime.utcnow()
+            )
+            db.add(email_cred)
+        else:
+            email_cred.encrypted_password = encrypted_pass
+            email_cred.provider = req.provider
+            email_cred.is_verified = True
+            email_cred.verification_method = "imap"
+            email_cred.verified_at = datetime.utcnow()
+            
         db.commit()
         
         return schemas.APIResponse(success=True, message="App Password verified and securely stored.")

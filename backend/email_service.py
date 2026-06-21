@@ -57,11 +57,11 @@ class EmailService:
             # Send email
             async with aiosmtplib.SMTP(hostname=smtp_server, port=smtp_port) as smtp:
                 await smtp.login(email_address, password)
-                response = await smtp.send_message(msg)
+                errors, response = await smtp.send_message(msg)
                 
             return {
                 "success": True,
-                "message_id": response if response else "sent",
+                "message_id": str(response) if response else "sent",
                 "to": to_email
             }
             

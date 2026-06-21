@@ -27,11 +27,49 @@ export default function DashboardLayout({ children, activeModule = 'overview' }:
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [runningCampaign, setRunningCampaign] = useState<any>(null);
   const apiUrl = getApiUrl();
+
+  const fetchCampaigns = async (token: string) => {
+    try {
+      const response = await fetch(`${apiUrl}/campaigns`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && Array.isArray(data.data)) {
+          const active = data.data.find((c: any) => c.status === 'running');
+          setRunningCampaign(active || null);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching campaigns in sidebar:', err);
+    }
+  };
 
   useEffect(() => {
     checkUser();
   }, [router]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        fetchCampaigns(session.access_token);
+      }
+    });
+
+    const interval = setInterval(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          fetchCampaigns(session.access_token);
+        }
+      });
+    }, 8000); // Poll every 8 seconds
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -120,6 +158,53 @@ export default function DashboardLayout({ children, activeModule = 'overview' }:
             );
           })}
         </nav>
+
+        {/* Active Campaign Widget */}
+        {runningCampaign && (
+          sidebarOpen ? (
+            <div className="absolute bottom-24 left-3 right-3 p-4 rounded-2xl bg-gray-800/40 border border-gray-800/80 backdrop-blur-md">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-cyan-300">
+                    Active Campaign
+                  </span>
+                </div>
+                <span className="text-[10px] text-gray-400 font-mono font-medium">
+                  {Math.round(((runningCampaign.sent_count + runningCampaign.failed_count) / Math.max(runningCampaign.total_leads, 1)) * 100)}%
+                </span>
+              </div>
+              
+              <p className="text-xs font-semibold text-white truncate mb-2">
+                {runningCampaign.name}
+              </p>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-950 rounded-full h-1.5 overflow-hidden mb-1.5">
+                <div 
+                  className="bg-cyan-400 h-1.5 rounded-full transition-all duration-500" 
+                  style={{ 
+                    width: `${Math.min(100, Math.round(((runningCampaign.sent_count + runningCampaign.failed_count) / Math.max(runningCampaign.total_leads, 1)) * 100))}%` 
+                  }}
+                />
+              </div>
+              
+              <p className="text-[10px] text-gray-500 font-medium">
+                {runningCampaign.sent_count + runningCampaign.failed_count} / {runningCampaign.total_leads} leads sent
+              </p>
+            </div>
+          ) : (
+            <div className="absolute bottom-24 left-0 right-0 flex justify-center">
+              <span className="relative flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-cyan-400"></span>
+              </span>
+            </div>
+          )
+        )}
 
         {/* Logout Button */}
         <button
