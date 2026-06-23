@@ -100,6 +100,106 @@ export default function CampaignsPage() {
 
   const [viewingCampaign, setViewingCampaign] = useState<Campaign | null>(null);
 
+  const [uploadingLeads, setUploadingLeads] = useState(false);
+  const [showInlineTemplateForm, setShowInlineTemplateForm] = useState(false);
+  const [inlineTemplateData, setInlineTemplateData] = useState({
+    name: '',
+    description: '',
+    subject_line: '',
+    text_content: '',
+  });
+  const [savingTemplateInline, setSavingTemplateInline] = useState(false);
+
+  const handleLeadFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingLeads(true);
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(`${apiUrl}/leads/upload`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Reload lead files list
+        await fetchLeadFiles();
+        // Automatically select the uploaded lead file
+        const newLeadId = data.data?.lead_id || data.data?.id;
+        if (newLeadId) {
+          setSelectedLeadFiles((prev) => [...prev, newLeadId]);
+        }
+      } else {
+        alert("Failed to upload lead file.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error uploading lead file.");
+    } finally {
+      setUploadingLeads(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleSaveTemplateInline = async () => {
+    if (!inlineTemplateData.name || !inlineTemplateData.subject_line) {
+      alert("Template name and subject line are required.");
+      return;
+    }
+
+    setSavingTemplateInline(true);
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      
+      const payload = {
+        name: inlineTemplateData.name,
+        description: inlineTemplateData.description,
+        subject_line: inlineTemplateData.subject_line,
+        text_content: inlineTemplateData.text_content,
+        html_content: `<p>${inlineTemplateData.text_content.replace(/\n/g, '<br/>')}</p>`,
+        tags: ["inline"],
+        variables: {},
+      };
+
+      const res = await fetch(`${apiUrl}/templates`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Refresh templates list
+        await fetchTemplates();
+        // Automatically select newly created template
+        const newTemplateId = data.data?.template_id || data.data?.id;
+        if (newTemplateId) {
+          setSelectedTemplate(newTemplateId);
+        }
+        setShowInlineTemplateForm(false);
+        setInlineTemplateData({ name: '', description: '', subject_line: '', text_content: '' });
+      } else {
+        alert("Failed to create template.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error saving template.");
+    } finally {
+      setSavingTemplateInline(false);
+    }
+  };
+
   const handleEdit = (campaign: Campaign) => {
     setFormData({
       id: campaign.id,
@@ -565,86 +665,234 @@ export default function CampaignsPage() {
               )}
 
               {step === 2 && (
-                <div className="grid md:grid-cols-2 gap-5">
-                  {leadFiles.map((lf) => {
-                    const selected =
-                      selectedLeadFiles.includes(lf.id);
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium text-white">Select Lead List</h3>
+                    <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300 text-xs font-medium cursor-pointer transition">
+                      <Plus size={14} />
+                      Upload New
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={handleLeadFileUpload}
+                        accept=".csv,.xls,.xlsx"
+                        disabled={uploadingLeads}
+                      />
+                    </label>
+                  </div>
 
-                    return (
-                      <div
-                        key={lf.id}
-                        onClick={() =>
-                          setSelectedLeadFiles((prev) =>
-                            selected
-                              ? prev.filter((id) => id !== lf.id)
-                              : [...prev, lf.id]
-                          )
-                        }
-                        className={`group cursor-pointer rounded-2xl border p-5 transition-all duration-300
-                        ${
-                          selected
-                            ? 'border-cyan-400 bg-cyan-500/10 shadow-lg shadow-cyan-500/10'
-                            : 'border-zinc-800 bg-zinc-950 hover:border-zinc-600 hover:-translate-y-1'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-semibold text-white">
-                              {lf.file_name}
-                            </h3>
+                  {uploadingLeads && (
+                    <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 flex items-center gap-2.5 text-cyan-300 text-xs">
+                      <div className="w-4 h-4 rounded-full border-2 border-cyan-300 border-t-transparent animate-spin" />
+                      Uploading and parsing lead file...
+                    </div>
+                  )}
 
-                            <p className="text-xs text-zinc-500 mt-2">
-                              {lf.columns.slice(0, 4).join(', ')}
-                            </p>
-                          </div>
-
-                          {selected && (
-                            <CheckCircle2 className="text-cyan-400" />
-                          )}
-                        </div>
+                  {leadFiles.length === 0 ? (
+                    <div className="border border-dashed border-zinc-800 rounded-2xl bg-zinc-900/10 p-10 text-center">
+                      <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center mx-auto mb-4">
+                        <Plus size={20} className="text-cyan-400" />
                       </div>
-                    );
-                  })}
+                      <h4 className="text-sm font-semibold mb-1">No Leads Available</h4>
+                      <p className="text-xs text-zinc-500 max-w-xs mx-auto mb-6">
+                        Upload a CSV or Excel lead list to select prospects for this campaign.
+                      </p>
+                      <label className="inline-flex items-center gap-2 bg-white hover:bg-cyan-300 text-black px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer transition">
+                        <Plus size={14} />
+                        Upload Lead File
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={handleLeadFileUpload}
+                          accept=".csv,.xls,.xlsx"
+                          disabled={uploadingLeads}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-5">
+                      {leadFiles.map((lf) => {
+                        const selected = selectedLeadFiles.includes(lf.id);
+
+                        return (
+                          <div
+                            key={lf.id}
+                            onClick={() =>
+                              setSelectedLeadFiles((prev) =>
+                                selected
+                                  ? prev.filter((id) => id !== lf.id)
+                                  : [...prev, lf.id]
+                              )
+                            }
+                            className={`group cursor-pointer rounded-2xl border p-5 transition-all duration-300
+                            ${
+                              selected
+                                ? 'border-cyan-400 bg-cyan-500/10 shadow-lg shadow-cyan-500/10'
+                                : 'border-zinc-800 bg-zinc-950 hover:border-zinc-600 hover:-translate-y-1'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h3 className="font-semibold text-white">
+                                  {lf.file_name}
+                                </h3>
+
+                                <p className="text-xs text-zinc-500 mt-2">
+                                  {lf.columns.slice(0, 4).join(', ')}
+                                </p>
+                              </div>
+
+                              {selected && (
+                                <CheckCircle2 className="text-cyan-400" />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
               {step === 3 && (
-                <div className="grid md:grid-cols-2 gap-5">
-                  {templates.map((t) => {
-                    const selected =
-                      selectedTemplate === t.id;
-
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() =>
-                          setSelectedTemplate(t.id)
-                        }
-                        className={`group cursor-pointer rounded-2xl border p-5 transition-all duration-300
-                        ${
-                          selected
-                            ? 'border-cyan-400 bg-cyan-500/10 shadow-lg shadow-cyan-500/10'
-                            : 'border-zinc-800 bg-zinc-950 hover:border-zinc-600 hover:-translate-y-1'
-                        }`}
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium text-white">
+                      {showInlineTemplateForm ? 'Create New Template' : 'Select Template'}
+                    </h3>
+                    {!showInlineTemplateForm && (
+                      <button
+                        onClick={() => setShowInlineTemplateForm(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition"
                       >
-                        <div className="flex justify-between">
-                          <div>
-                            <h3 className="font-semibold text-white">
-                              {t.name}
-                            </h3>
+                        <Plus size={14} />
+                        Create New
+                      </button>
+                    )}
+                  </div>
 
-                            <p className="text-sm text-zinc-400 mt-2">
-                              {t.subject_line}
-                            </p>
-                          </div>
-
-                          {selected && (
-                            <CheckCircle2 className="text-cyan-400" />
-                          )}
+                  {showInlineTemplateForm ? (
+                    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs text-zinc-400 mb-2">Template Name</label>
+                          <input
+                            type="text"
+                            placeholder="Welcome Email"
+                            value={inlineTemplateData.name}
+                            onChange={(e) => setInlineTemplateData({ ...inlineTemplateData, name: e.target.value })}
+                            className="w-full rounded-xl border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-zinc-400 mb-2">Description</label>
+                          <input
+                            type="text"
+                            placeholder="Sent to new prospects"
+                            value={inlineTemplateData.description}
+                            onChange={(e) => setInlineTemplateData({ ...inlineTemplateData, description: e.target.value })}
+                            className="w-full rounded-xl border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                          />
                         </div>
                       </div>
-                    );
-                  })}
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-2">Subject Line</label>
+                        <input
+                          type="text"
+                          placeholder="Quick question for {{first_name}}"
+                          value={inlineTemplateData.subject_line}
+                          onChange={(e) => setInlineTemplateData({ ...inlineTemplateData, subject_line: e.target.value })}
+                          className="w-full rounded-xl border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-2">Email Body Content</label>
+                        <textarea
+                          placeholder="Hi {{first_name}},\n\nI wanted to reach out regarding..."
+                          value={inlineTemplateData.text_content}
+                          onChange={(e) => setInlineTemplateData({ ...inlineTemplateData, text_content: e.target.value })}
+                          className="w-full h-36 rounded-xl border border-zinc-800 bg-black/40 px-3 py-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowInlineTemplateForm(false);
+                            setInlineTemplateData({ name: '', description: '', subject_line: '', text_content: '' });
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          disabled={savingTemplateInline || !inlineTemplateData.name || !inlineTemplateData.subject_line}
+                          onClick={handleSaveTemplateInline}
+                          className="flex items-center gap-1.5 bg-cyan-400 hover:bg-cyan-300 text-black px-4 py-2 rounded-xl text-xs font-bold transition disabled:opacity-50"
+                        >
+                          {savingTemplateInline ? (
+                            <Loader size={14} className="animate-spin" />
+                          ) : (
+                            <Check size={14} />
+                          )}
+                          Save & Select
+                        </button>
+                      </div>
+                    </div>
+                  ) : templates.length === 0 ? (
+                    <div className="border border-dashed border-zinc-800 rounded-2xl bg-zinc-900/10 p-10 text-center">
+                      <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center mx-auto mb-4">
+                        <Plus size={20} className="text-cyan-400" />
+                      </div>
+                      <h4 className="text-sm font-semibold mb-1">No Templates Available</h4>
+                      <p className="text-xs text-zinc-500 max-w-xs mx-auto mb-6">
+                        Create an email template containing variables to personalize your campaign outreach.
+                      </p>
+                      <button
+                        onClick={() => setShowInlineTemplateForm(true)}
+                        className="bg-white hover:bg-cyan-300 text-black px-4 py-2 rounded-xl text-xs font-semibold transition"
+                      >
+                        <Plus size={14} />
+                        Create Template
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-5">
+                      {templates.map((t) => {
+                        const selected = selectedTemplate === t.id;
+
+                        return (
+                          <div
+                            key={t.id}
+                            onClick={() => setSelectedTemplate(t.id)}
+                            className={`group cursor-pointer rounded-2xl border p-5 transition-all duration-300
+                            ${
+                              selected
+                                ? 'border-cyan-400 bg-cyan-500/10 shadow-lg shadow-cyan-500/10'
+                                : 'border-zinc-800 bg-zinc-950 hover:border-zinc-600 hover:-translate-y-1'
+                            }`}
+                          >
+                            <div className="flex justify-between">
+                              <div>
+                                <h3 className="font-semibold text-white">
+                                  {t.name}
+                                </h3>
+
+                                <p className="text-sm text-zinc-400 mt-2">
+                                  {t.subject_line}
+                                </p>
+                              </div>
+
+                              {selected && (
+                                <CheckCircle2 className="text-cyan-400" />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 

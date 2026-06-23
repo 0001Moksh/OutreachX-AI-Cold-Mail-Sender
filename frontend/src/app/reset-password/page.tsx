@@ -48,9 +48,9 @@ export default function ResetPassword() {
 
       <div className="w-full max-w-md glass-panel p-10 rounded-3xl relative z-10 shadow-2xl border border-zinc-800/50">
         <div className="flex justify-center mb-8">
-          <Image src="/logo.png" alt="OutreachX Logo" width={48} height={48} className="rounded-xl shadow-lg shadow-cyan-500/30" />
+          <Image src="/logo1.png" alt="OutreachX Logo" width={48} height={48} className="h-12 w-auto rounded-xl shadow-lg shadow-cyan-500/30" />
         </div>
-        
+
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold heading-font tracking-tight mb-2">Create New Password</h1>
           <p className="text-zinc-400 text-sm">Please enter your new strong password.</p>
@@ -67,7 +67,7 @@ export default function ResetPassword() {
               {message}
             </div>
           )}
-          
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-zinc-300 ml-1">New Password</label>
             <div className="relative">

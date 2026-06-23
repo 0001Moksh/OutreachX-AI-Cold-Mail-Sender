@@ -14,6 +14,39 @@ def parse_website(url: str) -> str:
     try:
         url = url.strip()
         
+        # Check if it is a LinkedIn URL
+        if "linkedin.com" in url.lower():
+            import os
+            api_key = os.getenv("TAVILY_API_KEY", "")
+            username = url.rstrip('/').split('/')[-1]
+            search_query = f"{username} linkedin profile experience summary info"
+            
+            if not api_key or "placeholder" in api_key.lower():
+                # Mock search
+                snippets = [
+                    f"LinkedIn Profile of {username}. Experience: Software Engineer, AI Developer. Summary: Expert in backend systems and artificial intelligence.",
+                    f"About {username}: Works on OutreachX platform. Tech Stack: Python, FastAPI, Next.js."
+                ]
+            else:
+                try:
+                    payload = {
+                        "api_key": api_key,
+                        "query": search_query,
+                        "search_depth": "basic",
+                        "max_results": 3
+                    }
+                    response = requests.post("https://api.tavily.com/search", json=payload, timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        results = data.get("results", [])
+                        snippets = [res.get("content", "") for res in results]
+                    else:
+                        snippets = [f"Tavily search failed with status {response.status_code}."]
+                except Exception as e:
+                    snippets = [f"Error calling Tavily: {e}"]
+            
+            return f"LinkedIn Crawl Fallback for URL: {url}\n\nSearch Snippets:\n" + "\n\n".join(snippets)
+        
         # Try Jina AI reader first for JS rendering and clean markdown
         try:
             jina_url = f"https://r.jina.ai/{url}"

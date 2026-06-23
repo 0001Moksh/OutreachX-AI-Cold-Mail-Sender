@@ -16,13 +16,6 @@ from email_service import EmailService
 from db_service import DatabaseService
 from security import decrypt_credential
 
-# Monkeypatch redis-py to default to RESP2 (protocol=2) globally
-# to avoid 'unknown command HELLO' errors with older Redis servers (Redis 5.x)
-import redis.connection
-import redis.utils
-redis.connection.DEFAULT_RESP_VERSION = 2
-redis.utils.DEFAULT_RESP_VERSION = 2
-
 load_dotenv()
 
 # Setup logging
@@ -33,6 +26,16 @@ celery_app = Celery('OutreachX')
 
 # Load configuration from celery_config.py
 celery_app.config_from_object('celery_config')
+
+from celery.signals import worker_ready
+from redis_validator import run_startup_validation
+
+@worker_ready.connect
+def on_worker_ready(**kwargs):
+    try:
+        run_startup_validation()
+    except Exception as e:
+        print(f"Error running Celery worker startup validation: {e}")
 
 # Database setup
 DATABASE_URL = os.getenv('DATABASE_URL')
@@ -400,6 +403,33 @@ def process_scheduled_campaigns():
     except Exception as e:
         logger.error(f"Error in process_scheduled_campaigns: {str(e)}")
     
+    finally:
+        db.close()
+
+
+@celery_app.task
+def update_all_campaigns_stats():
+    """
+    Periodic task to update stats for all campaigns
+    """
+    db = SessionLocal()
+    try:
+        campaigns = db.query(models.Campaign).all()
+        for campaign in campaigns:
+            try:
+                # Count emails by status
+                logs = db.query(models.EmailLog).filter(
+                    models.EmailLog.campaign_id == campaign.id
+                ).all()
+
+                campaign.sent_count = len([l for l in logs if l.status in ["sent", "opened", "clicked", "replied"]])
+                campaign.opened_count = len([l for l in logs if l.status in ["opened", "clicked", "replied"]])
+                campaign.clicked_count = len([l for l in logs if l.status in ["clicked", "replied"]])
+                campaign.replied_count = len([l for l in logs if l.status == "replied"])
+                campaign.bounced_count = len([l for l in logs if l.status == "bounced"])
+            except Exception as e:
+                logger.error(f"Error updating stats for campaign {campaign.id}: {str(e)}")
+        db.commit()
     finally:
         db.close()
 

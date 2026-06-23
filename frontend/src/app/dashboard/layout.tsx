@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { getApiUrl } from "@/lib/api";
@@ -113,28 +114,28 @@ export default function DashboardLayout({
       animate={{ x: 0 }}
       exit={mobile ? { x: -320 } : undefined}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className={`${
-        mobile ? "fixed inset-y-0 left-0 z-50 w-80" : `hidden ${sidebarWidth} lg:flex`
-      } flex-col border-r border-white/[0.07] bg-[#070707]/95 text-white backdrop-blur-2xl transition-all duration-300`}
+      className={`${mobile ? "fixed inset-y-0 left-0 z-50 w-80" : `hidden ${sidebarWidth} lg:flex`
+        } flex-col border-r border-white/[0.07] bg-[#070707]/95 text-white backdrop-blur-2xl transition-all duration-300`}
     >
       <div
-        className={`relative flex h-20 items-center px-5 ${
-          sidebarOpen || mobile ? "justify-between" : "justify-center"
-        }`}
+        className={`relative flex h-20 items-center px-5 ${sidebarOpen || mobile ? "justify-between" : "justify-center"
+          }`}
       >
         <Link href="/dashboard" className="flex min-w-0 items-center gap-3">
+          <Image
+            src="/logo1.png"
+            alt="OutreachX Logo"
+            width={54}
+            height={54}
+            className="rounded-xl h-12 w-auto shrink-0"
+          />
           {(sidebarOpen || mobile) && (
-            <>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400 text-sm font-black text-black shadow-lg shadow-cyan-400/20">
-                OX
-              </div>
-              <div className="min-w-0">
-                <h1 className="heading-font text-xl font-semibold tracking-tight">
-                  OutreachX
-                </h1>
-                <p className="truncate text-xs text-zinc-500">Deva command center</p>
-              </div>
-            </>
+            <div className="min-w-0">
+              <h1 className="heading-font text-xl font-semibold tracking-tight">
+                OutreachX
+              </h1>
+              <p className="truncate text-xs text-zinc-500">Deva command center</p>
+            </div>
           )}
         </Link>
 
@@ -149,16 +150,14 @@ export default function DashboardLayout({
         ) : (
           <button
             onClick={() => setSidebarOpen((value) => !value)}
-            className={`hidden h-10 w-10 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.03] text-zinc-300 hover:border-cyan-400/30 hover:text-cyan-300 lg:flex ${
-              sidebarOpen ? "" : "absolute -right-5 top-5 bg-[#0a0a0a]"
-            }`}
+            className={`hidden h-10 w-10 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.03] text-zinc-300 hover:border-cyan-400/30 hover:text-cyan-300 lg:flex ${sidebarOpen ? "" : "absolute -right-5 top-5 bg-[#0a0a0a]"
+              }`}
             aria-label="Toggle sidebar"
           >
             <ChevronLeft
               size={18}
-              className={`transition-transform duration-300 ${
-                sidebarOpen ? "" : "rotate-180"
-              }`}
+              className={`transition-transform duration-300 ${sidebarOpen ? "" : "rotate-180"
+                }`}
             />
           </button>
         )}
@@ -175,11 +174,10 @@ export default function DashboardLayout({
               href={item.href}
               onClick={() => mobile && setMobileOpen(false)}
               title={!sidebarOpen && !mobile ? item.label : undefined}
-              className={`group relative flex h-12 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition-all duration-200 ${
-                active
-                  ? "bg-cyan-400 text-black shadow-lg shadow-cyan-400/10"
-                  : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
-              }`}
+              className={`group relative flex h-12 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition-all duration-200 ${active
+                ? "bg-cyan-400 text-black shadow-lg shadow-cyan-400/10"
+                : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
+                }`}
             >
               <Icon size={19} className="shrink-0" />
               {(sidebarOpen || mobile) && <span>{item.label}</span>}
@@ -192,11 +190,10 @@ export default function DashboardLayout({
         <Link
           href="/dashboard/settings"
           onClick={() => mobile && setMobileOpen(false)}
-          className={`flex h-12 items-center gap-3 rounded-2xl px-3 text-sm font-medium ${
-            pathname.startsWith("/dashboard/settings")
-              ? "bg-white text-black"
-              : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
-          }`}
+          className={`flex h-12 items-center gap-3 rounded-2xl px-3 text-sm font-medium ${pathname.startsWith("/dashboard/settings")
+            ? "bg-white text-black"
+            : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
+            }`}
         >
           <Settings size={19} />
           {(sidebarOpen || mobile) && <span>Settings</span>}

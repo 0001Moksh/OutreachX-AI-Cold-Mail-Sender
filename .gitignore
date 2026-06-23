@@ -46,3 +46,9 @@ frontend/.env.local
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 Untitled.ipynb
+
+# env production
+deva_backend_3/.env.production
+deva_backend_2/.env.production
+deva_backend_1/.env.production
+deva/.env.production

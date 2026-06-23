@@ -101,7 +101,9 @@ export default function TemplatesPage() {
         const data = await res.json();
 
         if (data.success) {
-          setTemplates(Array.isArray(data.data) ? data.data : []);
+          const list = Array.isArray(data.data) ? data.data : [];
+          setTemplates(list);
+          window.localStorage.setItem("cached_templates", JSON.stringify(list));
         }
       }
     } catch (err) {
@@ -115,10 +117,21 @@ export default function TemplatesPage() {
         router.push("/login");
       } else {
         setSession(session);
-        fetchTemplates(session.access_token);
+        
+        const cached = window.localStorage.getItem("cached_templates");
+        if (cached) {
+          try {
+            setTemplates(JSON.parse(cached));
+            setLoading(false);
+          } catch (e) {
+            console.error("Failed to parse cached templates", e);
+          }
+        }
+        
+        fetchTemplates(session.access_token).then(() => {
+          setLoading(false);
+        });
       }
-
-      setLoading(false);
     });
   }, [fetchTemplates, router]);
 
@@ -285,7 +298,11 @@ export default function TemplatesPage() {
     if (!ok) return;
 
     // Optimistic UI Update
-    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    setTemplates((prev) => {
+      const updated = prev.filter((t) => t.id !== id);
+      window.localStorage.setItem("cached_templates", JSON.stringify(updated));
+      return updated;
+    });
 
     try {
       const res = await fetch(`${apiUrl}/templates/${id}`, {
@@ -297,9 +314,11 @@ export default function TemplatesPage() {
 
       if (!res.ok) {
         alert("Failed to delete template from backend.");
+        if (session?.access_token) fetchTemplates(session.access_token);
       }
     } catch (err) {
       console.error(err);
+      if (session?.access_token) fetchTemplates(session.access_token);
     }
   };
 
@@ -406,46 +425,46 @@ export default function TemplatesPage() {
       <div className="relative z-10 p-8">
         {view === "list" && (
           <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
-              <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/20 bg-cyan-500/10 text-cyan-300 text-xs font-medium mb-4">
-                  <Sparkles size={12} />
-                  OutreachXDeva Templates
-                </div>
-
-                <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent">
-                  Smart Email Templates
-                </h1>
-
-                <p className="text-zinc-400 mt-3 max-w-2xl">
-                  Create intelligent outreach templates with variables,
-                  HTML support, and live email rendering.
-                </p>
+            {/* Header Title Section */}
+            <div className="border-b border-white/[0.06] pb-6 mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/20 bg-cyan-500/10 text-cyan-300 text-xs font-medium mb-4">
+                <Sparkles size={12} />
+                OutreachXDeva Templates
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Search
-                    size={16}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-                  />
+              <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent">
+                Smart Email Templates
+              </h1>
 
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search templates..."
-                    className="w-[260px] bg-zinc-900/70 border border-zinc-800 rounded-2xl pl-11 pr-4 py-3 text-sm outline-none focus:border-cyan-400"
-                  />
-                </div>
+              <p className="text-zinc-400 mt-3 max-w-2xl text-sm">
+                Create intelligent outreach templates with variables,
+                HTML support, and live email rendering.
+              </p>
+            </div>
 
-                <button
-                  onClick={() => openEditor()}
-                  className="bg-cyan-400 hover:bg-cyan-300 text-black px-5 py-3 rounded-2xl font-semibold flex items-center gap-2"
-                >
-                  <Plus size={18} />
-                  New Template
-                </button>
+            {/* Thinned & Lowered Search & Navigation Area */}
+            <div className="flex items-center justify-between gap-4 mb-8 bg-[#050505]/60 sticky top-0 z-20 backdrop-blur-md py-3 border-b border-white/[0.04]">
+              <div className="relative">
+                <Search
+                  size={15}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500"
+                />
+
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search templates..."
+                  className="w-[260px] bg-zinc-900/40 border border-white/[0.06] rounded-xl pl-9 pr-4 py-2 text-xs outline-none focus:border-cyan-400/30 transition-all placeholder-zinc-600"
+                />
               </div>
+
+              <button
+                onClick={() => openEditor()}
+                className="bg-cyan-400 hover:bg-cyan-300 text-black px-4 py-2 rounded-xl font-semibold flex items-center gap-2 text-xs transition-all"
+              >
+                <Plus size={15} />
+                New Template
+              </button>
             </div>
 
             {filteredTemplates.length === 0 ? (

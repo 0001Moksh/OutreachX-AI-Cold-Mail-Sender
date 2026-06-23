@@ -11,21 +11,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Broker and Result Backend
-broker_url = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
-result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+import ssl
 
-# Enforce RESP2 protocol (protocol=2) for compatibility with Redis 5.x
-broker_transport_options = {
-    "client_connection_options": {
-        "protocol": 2
+# Broker and Result Backend
+broker_url = os.getenv("CELERY_BROKER_URL")
+result_backend = os.getenv("CELERY_RESULT_BACKEND")
+
+# Add SSL configurations if using secure rediss:// protocol
+if broker_url and broker_url.startswith("rediss://"):
+    broker_use_ssl = {
+        "ssl_cert_reqs": ssl.CERT_NONE
     }
-}
-result_backend_transport_options = {
-    "client_connection_options": {
-        "protocol": 2
+if result_backend and result_backend.startswith("rediss://"):
+    redis_backend_use_ssl = {
+        "ssl_cert_reqs": ssl.CERT_NONE
     }
-}
 
 # Task Settings
 task_serializer = "json"
@@ -84,6 +84,7 @@ task_routes = {
     "tasks.send_campaign_emails": {"queue": "emails", "priority": 10},
     "tasks.retry_failed_emails": {"queue": "emails", "priority": 9},
     "tasks.update_campaign_stats": {"queue": "default", "priority": 5},
+    "tasks.update_all_campaigns_stats": {"queue": "default", "priority": 5},
     "tasks.schedule_campaign": {"queue": "default", "priority": 8},
     "tasks.cleanup_old_otp_codes": {"queue": "cleanup", "priority": 1},
 }
@@ -96,7 +97,7 @@ beat_schedule = {
         "options": {"expires": 3600}
     },
     "update-campaign-stats": {
-        "task": "tasks.update_campaign_stats",
+        "task": "tasks.update_all_campaigns_stats",
         "schedule": timedelta(minutes=5),  # Every 5 minutes
         "options": {"expires": 300}
     },

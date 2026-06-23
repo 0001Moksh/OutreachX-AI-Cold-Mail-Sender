@@ -81,7 +81,6 @@ export default function Dashboard() {
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [leadFiles, setLeadFiles] = useState<LeadFileSummary[]>([]);
   const [assets, setAssets] = useState<AssetSummary[]>([]);
-
   useEffect(() => {
     const fetchJson = async (url: string, token: string) => {
       try {
@@ -91,7 +90,6 @@ export default function Dashboard() {
         if (!res.ok) return null;
         return res.json();
       } catch (err) {
-        // Silently handle fetch errors if backend is not available
         return null;
       }
     };
@@ -103,8 +101,29 @@ export default function Dashboard() {
 
       if (!session) return;
 
+      const token = session.access_token;
+
+      // 1. Try to load from localStorage cache first (Stale-While-Revalidate)
+      const cachedProfile = window.localStorage.getItem("cache_dashboard_profile");
+      const cachedCampaigns = window.localStorage.getItem("cache_dashboard_campaigns");
+      const cachedTemplates = window.localStorage.getItem("cache_dashboard_templates");
+      const cachedLeads = window.localStorage.getItem("cache_dashboard_leads");
+      const cachedAssets = window.localStorage.getItem("cache_dashboard_assets");
+
+      if (cachedProfile && cachedCampaigns && cachedTemplates && cachedLeads && cachedAssets) {
+        try {
+          setProfile(JSON.parse(cachedProfile));
+          setCampaigns(JSON.parse(cachedCampaigns));
+          setTemplates(JSON.parse(cachedTemplates));
+          setLeadFiles(JSON.parse(cachedLeads));
+          setAssets(JSON.parse(cachedAssets));
+          setLoading(false);
+        } catch (e) {
+          console.error("Failed to parse cached dashboard data", e);
+        }
+      }
+
       try {
-        const token = session.access_token;
         const [profileRes, campaignsRes, templatesRes, leadsRes, assetsRes] =
           await Promise.all([
             fetchJson(`${apiUrl}/settings/profile`, token),
@@ -114,7 +133,7 @@ export default function Dashboard() {
             fetchJson(`${apiUrl}/assets`, token),
           ]);
 
-        setProfile({
+        const nextProfile = {
           full_name:
             profileRes?.data?.full_name ||
             session.user?.user_metadata?.full_name ||
@@ -122,13 +141,27 @@ export default function Dashboard() {
           app_password_verified: Boolean(
             profileRes?.data?.app_password_verified
           ),
-        });
-        setCampaigns(campaignsRes?.data || campaignsRes || []);
-        setTemplates(templatesRes?.data || []);
-        setLeadFiles(leadsRes?.data || []);
-        setAssets(assetsRes?.data || []);
+        };
+        const nextCampaigns = campaignsRes?.data || campaignsRes || [];
+        const nextTemplates = templatesRes?.data || [];
+        const nextLeads = leadsRes?.data || [];
+        const nextAssets = assetsRes?.data || [];
+
+        // Save back to cache
+        window.localStorage.setItem("cache_dashboard_profile", JSON.stringify(nextProfile));
+        window.localStorage.setItem("cache_dashboard_campaigns", JSON.stringify(nextCampaigns));
+        window.localStorage.setItem("cache_dashboard_templates", JSON.stringify(nextTemplates));
+        window.localStorage.setItem("cache_dashboard_leads", JSON.stringify(nextLeads));
+        window.localStorage.setItem("cache_dashboard_assets", JSON.stringify(nextAssets));
+
+        // Update states
+        setProfile(nextProfile);
+        setCampaigns(nextCampaigns);
+        setTemplates(nextTemplates);
+        setLeadFiles(nextLeads);
+        setAssets(nextAssets);
       } catch (error) {
-        // Silently handle fetch errors if backend is not available
+        console.error("Dashboard hydrate failed:", error);
       } finally {
         setLoading(false);
       }
@@ -136,7 +169,6 @@ export default function Dashboard() {
 
     hydrateDashboard();
   }, [apiUrl]);
-
   const analytics = useMemo(() => {
     const totals = campaigns.reduce(
       (acc, campaign) => {
@@ -349,11 +381,10 @@ export default function Dashboard() {
                 <div key={String(label)} className="flex items-center justify-between">
                   <span className="text-sm text-zinc-400">{label}</span>
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      ready
-                        ? "bg-emerald-400/10 text-emerald-300"
-                        : "bg-zinc-800 text-zinc-400"
-                    }`}
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${ready
+                      ? "bg-emerald-400/10 text-emerald-300"
+                      : "bg-zinc-800 text-zinc-400"
+                      }`}
                   >
                     {ready ? "Ready" : "Pending"}
                   </span>
@@ -579,11 +610,10 @@ export default function Dashboard() {
                 >
                   <span className="text-sm text-zinc-200">{item.label}</span>
                   <span
-                    className={`rounded-full px-3 py-1 text-xs ${
-                      item.done
-                        ? "bg-emerald-400/10 text-emerald-300"
-                        : "bg-cyan-400/10 text-cyan-300"
-                    }`}
+                    className={`rounded-full px-3 py-1 text-xs ${item.done
+                      ? "bg-emerald-400/10 text-emerald-300"
+                      : "bg-cyan-400/10 text-cyan-300"
+                      }`}
                   >
                     {item.done ? "Done" : "Open"}
                   </span>

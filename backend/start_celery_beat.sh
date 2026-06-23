@@ -5,9 +5,9 @@ set -a
 source .env 2>/dev/null || true
 set +a
 
-# Ensure Redis is running
-if ! redis-cli ping > /dev/null 2>&1; then
-    echo "Error: Redis is not running. Please start Redis first."
+# Ensure Celery Broker URL is configured
+if [ -z "$CELERY_BROKER_URL" ]; then
+    echo "Error: CELERY_BROKER_URL is not set. Celery cannot connect without Redis host configuration."
     exit 1
 fi
 

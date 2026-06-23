@@ -115,7 +115,9 @@ export default function Assets() {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          setAssets(Array.isArray(data.data) ? data.data : []);
+          const list = Array.isArray(data.data) ? data.data : [];
+          setAssets(list);
+          window.localStorage.setItem("cached_assets", JSON.stringify(list));
         }
       }
     } catch (err) {
@@ -129,8 +131,20 @@ export default function Assets() {
         router.push("/login");
       } else {
         setSession(session);
-        fetchAssets(session.access_token);
-        setLoading(false);
+        
+        const cached = window.localStorage.getItem("cached_assets");
+        if (cached) {
+          try {
+            setAssets(JSON.parse(cached));
+            setLoading(false);
+          } catch (e) {
+            console.error("Failed to parse cached assets", e);
+          }
+        }
+        
+        fetchAssets(session.access_token).then(() => {
+          setLoading(false);
+        });
       }
     });
   }, [fetchAssets, router]);
@@ -320,7 +334,11 @@ export default function Assets() {
     if (!confirm("Are you sure you want to delete this asset?")) return;
     
     // Optimistic Update
-    setAssets((prev) => prev.filter((a) => a.id !== id));
+    setAssets((prev) => {
+      const updated = prev.filter((a) => a.id !== id);
+      window.localStorage.setItem("cached_assets", JSON.stringify(updated));
+      return updated;
+    });
     setSelectedAssetIds((prev) => prev.filter((v) => v !== id));
 
     try {
@@ -330,10 +348,12 @@ export default function Assets() {
       });
       if (!res.ok) {
         alert("Failed to delete asset from backend.");
+        if (session?.access_token) fetchAssets(session.access_token);
       }
     } catch (err) {
       console.error("Failed to delete asset", err);
       alert("Error deleting asset.");
+      if (session?.access_token) fetchAssets(session.access_token);
     }
   };
 
@@ -359,7 +379,11 @@ export default function Assets() {
     
     // Optimistic Update
     const idsToDelete = [...selectedAssetIds];
-    setAssets(prev => prev.filter(a => !idsToDelete.includes(a.id)));
+    setAssets(prev => {
+      const updated = prev.filter(a => !idsToDelete.includes(a.id));
+      window.localStorage.setItem("cached_assets", JSON.stringify(updated));
+      return updated;
+    });
     setSelectedAssetIds([]);
 
     try {
@@ -373,10 +397,12 @@ export default function Assets() {
       });
       if (!res.ok) {
         alert("Failed to delete multiple assets from backend.");
+        if (session?.access_token) fetchAssets(session.access_token);
       }
     } catch (err) {
       console.error("Failed to bulk delete assets", err);
       alert("Error deleting multiple assets.");
+      if (session?.access_token) fetchAssets(session.access_token);
     }
   };
 

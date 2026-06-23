@@ -17,13 +17,6 @@ from typing import Optional, List
 from email.message import EmailMessage
 from email.header import decode_header
 
-# Monkeypatch redis-py to default to RESP2 (protocol=2) globally
-# to avoid 'unknown command HELLO' errors with older Redis servers (Redis 5.x)
-import redis.connection
-import redis.utils
-redis.connection.DEFAULT_RESP_VERSION = 2
-redis.utils.DEFAULT_RESP_VERSION = 2
-
 from fastapi import FastAPI, Depends, HTTPException, status, Request, File, UploadFile, BackgroundTasks, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -49,11 +42,20 @@ load_dotenv()
 from fastapi.openapi.utils import get_openapi
 
 # ==================== APP SETUP ====================
+from redis_validator import run_startup_validation
+
 app = FastAPI(
     title="OutreachX API",
     description="AI-Powered Cold Outreach SaaS Platform",
     version="2.0.0",
 )
+
+@app.on_event("startup")
+def startup_validation():
+    try:
+        run_startup_validation()
+    except Exception as e:
+        print(f"Error running startup database validation: {e}")
 
 
 def custom_openapi():
@@ -836,6 +838,24 @@ async def bulk_delete_assets(
 ):
     """Delete multiple assets"""
     try:
+        # Sync deletion with Pinecone vector database
+        try:
+            import sys
+            import os
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if root_dir not in sys.path:
+                sys.path.append(root_dir)
+            from deva.services.vector_service import VectorService
+            
+            u_id = str(current_user.id)
+            for asset_id in request.ids:
+                await VectorService.delete_vectors_by_filter(
+                    user_id=u_id,
+                    filter_metadata={"asset_id": str(asset_id)}
+                )
+        except Exception as ve:
+            print(f"Error syncing Pinecone bulk asset deletion: {ve}")
+
         db.query(models.Asset).filter(
             models.Asset.id.in_(request.ids),
             models.Asset.user_id == current_user.id
@@ -869,6 +889,23 @@ async def delete_asset(
         if not asset:
             raise HTTPException(status_code=404, detail="Asset not found")
             
+        # Sync deletion with Pinecone vector database
+        try:
+            import sys
+            import os
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if root_dir not in sys.path:
+                sys.path.append(root_dir)
+            from deva.services.vector_service import VectorService
+            
+            u_id = str(current_user.id)
+            await VectorService.delete_vectors_by_filter(
+                user_id=u_id,
+                filter_metadata={"asset_id": str(asset.id)}
+            )
+        except Exception as ve:
+            print(f"Error syncing Pinecone asset deletion: {ve}")
+
         db.delete(asset)
         db.commit()
         

@@ -17,17 +17,7 @@ if (-not $env:DATABASE_URL) {
     $env:DATABASE_URL = "postgresql://outreachx:outreachx_password@localhost:5432/outreachx"
 }
 if (-not $env:CELERY_BROKER_URL) {
-    $env:CELERY_BROKER_URL = "redis://localhost:6379/0"
-}
-
-Write-Host "Checking Redis connection..." -ForegroundColor Cyan
-try {
-    $redis = New-Object System.Net.Sockets.TcpClient
-    $redis.Connect("localhost", 6379)
-    $redis.Close()
-    Write-Host "✓ Redis connection successful" -ForegroundColor Green
-} catch {
-    Write-Host "✗ Redis is not running. Please start Redis first." -ForegroundColor Red
+    Write-Host "✗ CELERY_BROKER_URL is not set. Celery cannot connect without Redis host configuration." -ForegroundColor Red
     exit 1
 }
 
