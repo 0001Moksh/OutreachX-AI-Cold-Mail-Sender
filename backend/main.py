@@ -723,7 +723,7 @@ async def list_assets(
                 "source_type": a.source_type,
                 "description": a.description,
                 "file_url": a.file_url,
-                "content": a.content,
+                # content excluded from list — fetched on-demand via GET /assets/{id}
                 "status": getattr(a, "status", None) or ("valid" if a.is_verified else "needs_review"),
                 "is_verified": a.is_verified,
                 "created_at": a.created_at
@@ -970,52 +970,101 @@ async def delete_campaign(
 
 
 # ==================== LEAD ENDPOINTS ====================
+MAX_LEAD_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_LEAD_ROWS = 5000
+
 @app.post("/leads/upload", response_model=schemas.APIResponse)
 async def upload_leads_file(
     file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload a lead file (CSV/Excel) and store its content as JSON"""
+    """Upload a lead file (CSV/Excel) — validates, creates metadata, then stores content."""
+    lead_id = uuid.uuid4()
     try:
         file_bytes = await file.read()
-        filename_lower = file.filename.lower()
-        
+        file_size = len(file_bytes)
+        filename_lower = (file.filename or "").lower()
+
+        # --- Guard: file size ---
+        if file_size > MAX_LEAD_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File too large ({file_size // (1024*1024)}MB). Maximum is {MAX_LEAD_FILE_SIZE // (1024*1024)}MB."
+            )
+
+        # --- Guard: file type ---
         if filename_lower.endswith('.csv'):
             df = pd.read_csv(io.BytesIO(file_bytes))
         elif filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls'):
             df = pd.read_excel(io.BytesIO(file_bytes))
         else:
             raise HTTPException(status_code=400, detail="Only CSV and Excel files are supported for leads")
-            
-        # Replace NaNs with None for JSON serialization
-        df = df.where(pd.notnull(df), None)
-        
-        # Extract JSON content and columns
-        json_content = df.to_dict(orient="records")
+
+        # --- Guard: row count ---
+        if len(df) > MAX_LEAD_ROWS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File has {len(df)} rows. Maximum is {MAX_LEAD_ROWS} rows."
+            )
+
+        # Replace NaNs with empty string for JSON serialization (fixes 500 error)
+        df = df.fillna("")
         columns = df.columns.tolist()
-        
+        row_count = len(df)
+        json_content = df.to_dict(orient="records")
+
+        # --- Phase 1: Create lead record with content ---
         lead_file = models.Lead(
-            id=uuid.uuid4(),
+            id=lead_id,
             user_id=current_user.id,
             file_name=file.filename,
             content=json_content,
             columns=columns,
+            status="ready",
+            row_count=row_count,
+            file_size_bytes=file_size,
             created_at=datetime.utcnow()
         )
         db.add(lead_file)
         db.commit()
-        
+
         return schemas.APIResponse(
             success=True,
             message="Lead file uploaded successfully",
-            data={"lead_id": str(lead_file.id), "file_name": file.filename, "columns": columns}
+            data={
+                "lead_id": str(lead_file.id),
+                "file_name": file.filename,
+                "columns": columns,
+                "row_count": row_count,
+                "status": "ready",
+            }
         )
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
+        # Persist the failed state so the card stays visible with error info
+        try:
+            failed_lead = models.Lead(
+                id=lead_id,
+                user_id=current_user.id,
+                file_name=file.filename or "unknown",
+                status="failed",
+                error_message=str(e)[:500],
+                file_size_bytes=file_size if 'file_size' in locals() else 0,
+                created_at=datetime.utcnow()
+            )
+            db.add(failed_lead)
+            db.commit()
+        except Exception:
+            db.rollback()
+        
+        # We return 500 because it's an unexpected error, but we've persisted the failed state
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            detail=f"Upload failed processing data: {str(e)}",
         )
 
 @app.get("/leads", response_model=schemas.APIResponse)
@@ -1023,13 +1072,16 @@ async def list_leads(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List all uploaded lead files for the user"""
+    """List all uploaded lead files for the user — metadata only, no content."""
     try:
-        # Avoid fetching the heavy 'content' column
         leads = db.query(
             models.Lead.id,
             models.Lead.file_name,
             models.Lead.columns,
+            models.Lead.status,
+            models.Lead.row_count,
+            models.Lead.error_message,
+            models.Lead.file_size_bytes,
             models.Lead.created_at
         ).filter(
             models.Lead.user_id == current_user.id
@@ -1041,6 +1093,10 @@ async def list_leads(
                 "id": str(l.id),
                 "file_name": l.file_name,
                 "columns": l.columns,
+                "status": l.status or "ready",
+                "row_count": l.row_count or 0,
+                "error_message": l.error_message,
+                "file_size_bytes": l.file_size_bytes or 0,
                 "created_at": l.created_at
             } for l in leads]
         )
@@ -1089,7 +1145,7 @@ async def get_lead_content(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get the raw JSON content of a lead file"""
+    """Get the raw JSON content of a lead file — only if status is 'ready'"""
     try:
         lead = db.query(models.Lead).filter(
             models.Lead.id == lead_id,
@@ -1100,6 +1156,18 @@ async def get_lead_content(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Lead file not found"
+            )
+
+        if lead.status == "failed":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Lead file failed to process: {lead.error_message or 'Unknown error'}"
+            )
+
+        if lead.status == "processing":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Lead file is still processing. Please wait."
             )
             
         return schemas.APIResponse(
@@ -1115,7 +1183,7 @@ async def get_lead_content(
         )
 # ==================== TEMPLATE ENDPOINTS ====================
 def serialize_template(template: models.Template) -> dict:
-    """Return a JSON-safe template payload for the frontend."""
+    """Return a JSON-safe template payload for the frontend (full — for detail/edit)."""
     return {
         "id": str(template.id),
         "name": template.name,
@@ -1132,12 +1200,28 @@ def serialize_template(template: models.Template) -> dict:
     }
 
 
+def serialize_template_card(template: models.Template) -> dict:
+    """Lightweight serializer for template list/cards — excludes heavy body fields."""
+    return {
+        "id": str(template.id),
+        "name": template.name,
+        "description": template.description,
+        "subject_line": template.subject_line,
+        "is_default": template.is_default,
+        "is_ai_generated": template.is_ai_generated,
+        "tags": template.tags or [],
+        "variables": template.variables or {},
+        "created_at": template.created_at,
+        "updated_at": template.updated_at,
+    }
+
+
 @app.get("/templates", response_model=schemas.APIResponse)
 async def get_templates(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all templates for current user."""
+    """Get all templates for current user — card metadata only (no html/text body)."""
     try:
         templates = db.query(models.Template).filter(
             models.Template.user_id == current_user.id
@@ -1145,7 +1229,7 @@ async def get_templates(
 
         return schemas.APIResponse(
             success=True,
-            data=[serialize_template(template) for template in templates]
+            data=[serialize_template_card(template) for template in templates]
         )
     except Exception as e:
         raise HTTPException(
@@ -1389,7 +1473,7 @@ async def list_campaigns(
                 "template_id": str(c.template_id) if c.template_id else None,
                 "variable_mapping": c.variable_mapping,
                 "description": c.description,
-                "lead_ids": [str(l.id) for l in c.leads],
+                # lead_ids removed from list — was causing N+1 queries per campaign
                 "created_at": c.created_at
             } for c in campaigns]
         )

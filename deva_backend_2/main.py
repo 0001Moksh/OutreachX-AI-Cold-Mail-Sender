@@ -86,8 +86,18 @@ async def chat_node(request: ChatRequest):
         message = request.message
         
         # Check if the query refers to uploaded assets (resume, cv, portfolio, documents, github, project)
-        asset_keywords = ["resume", "cv", "portfolio", "document", "github", "asset", "uploaded", "project", "education", "experience"]
-        is_asset_query = any(k in message.lower() for k in asset_keywords)
+        import re
+        asset_keywords = ["resume", r"\bcv\b", "portfolio", "document", "github", "asset", "uploaded", "project", "education", "experience"]
+        is_asset_query = False
+        message_lower = message.lower()
+        for k in asset_keywords:
+            if k.startswith(r"\b"):
+                if re.search(k, message_lower):
+                    is_asset_query = True
+                    break
+            elif k in message_lower:
+                is_asset_query = True
+                break
         
         if is_asset_query:
             from deva.services.vector_service import VectorService

@@ -73,8 +73,123 @@ async def chat(
     from deva.workflows.state_store import WorkflowStateStore
     active_state = WorkflowStateStore.get_state(db, user_id, conversation_id)
 
-    if message_clean in greetings and active_state:
-        # Persist messages to chat history
+    if message_clean == "clear history" or message_clean == "clear cache":
+        db.query(AIMemory).filter(
+            AIMemory.user_id == user_id,
+            AIMemory.conversation_id == conversation_id
+        ).delete()
+        db.commit()
+        
+        # Clear LLM cache as well
+        from deva.services.llm_service import _LLM_CACHE
+        _LLM_CACHE.clear()
+        
+        return ChatResponse(
+            conversation_id=conversation_id,
+            message="Your chat history and cache have been successfully cleared. Let's start fresh!",
+            actions=[]
+        )
+
+    if message_clean in greetings:
+        if active_state:
+            # Persist messages to chat history
+            user_msg = AIMemory(
+                user_id=current_user.id,
+                conversation_id=conversation_id,
+                role="user",
+                content=request.message,
+                message_type="chat"
+            )
+            deva_msg = AIMemory(
+                user_id=current_user.id,
+                conversation_id=conversation_id,
+                role="assistant",
+                content="Hello! I noticed you have an active workflow in progress. Would you like to resume it or start a new one?",
+                message_type="chat"
+            )
+            db.add(user_msg)
+            db.add(deva_msg)
+            db.commit()
+    
+            return ChatResponse(
+                conversation_id=conversation_id,
+                message="Hello! I noticed you have an active workflow in progress. Would you like to resume it or start a new one?",
+                actions=[
+                    ActionResponse(
+                        type="resume_workflow",
+                        label="Resume Workflow",
+                        payload={"conversation_id": conversation_id}
+                    ),
+                    ActionResponse(
+                        type="clear_workflow",
+                        label="Start Fresh",
+                        payload={"conversation_id": conversation_id}
+                    )
+                ]
+            )
+        else:
+            # Normal greeting bypass
+            user_msg = AIMemory(
+                user_id=current_user.id,
+                conversation_id=conversation_id,
+                role="user",
+                content=request.message,
+                message_type="chat"
+            )
+            deva_msg = AIMemory(
+                user_id=current_user.id,
+                conversation_id=conversation_id,
+                role="assistant",
+                content="Hello! I am Deva, your AI Outreach assistant. How can I help you today?",
+                message_type="chat"
+            )
+            db.add(user_msg)
+            db.add(deva_msg)
+            db.commit()
+            
+            return ChatResponse(
+                conversation_id=conversation_id,
+                message="Hello! I am Deva, your AI Outreach assistant. How can I help you today?",
+                actions=[
+                    ActionResponse(
+                        type="clear_history",
+                        label="Clear Chat History",
+                        payload={"conversation_id": conversation_id}
+                    )
+                ]
+            )
+
+    # 2. Local Intent Router
+    try:
+        routing = await GatewayAgent.route_message(request.message, chat_history)
+        route = routing.get("route", "general")
+    except Exception as e:
+        print(f"Gateway Agent route classification failed: {e}. Defaulting to general.")
+        route = "general"
+        
+    message_lower = request.message.lower().strip()
+    print(f"DEBUG: message_lower = '{message_lower}'")
+    print(f"DEBUG: initial route = '{route}'")
+    
+    # Heuristic override if LLM routing fails or misclassifies as memory for obvious lead queries
+    lead_keywords = ["lead", "companies", "company", "comapny", "hiring", "intern", "prospect"]
+    print(f"DEBUG: any match = {any(k in message_lower for k in lead_keywords)}")
+    if any(k in message_lower for k in lead_keywords):
+        route = "lead"
+    print(f"DEBUG: final route = '{route}'")
+
+    # Direct command sync shortcut (Requirement #2)
+    prefixes = ["remember this:", "remember that:", "save memory:", "remember:"]
+    is_explicit_memory = any(message_lower.startswith(p) for p in prefixes)
+    if is_explicit_memory:
+        route = "memory"
+
+    # Intercept upload lead request
+    is_upload_lead = (
+        "upload" in message_lower and "lead" in message_lower
+    )
+    
+    if is_upload_lead:
         user_msg = AIMemory(
             user_id=current_user.id,
             conversation_id=conversation_id,
@@ -86,52 +201,32 @@ async def chat(
             user_id=current_user.id,
             conversation_id=conversation_id,
             role="assistant",
-            content="Hello! I noticed you have an active workflow in progress. Would you like to resume it or start a new one?",
+            content="Please use the widget below to upload your lead file.",
             message_type="chat"
         )
         db.add(user_msg)
         db.add(deva_msg)
         db.commit()
-
+        
         return ChatResponse(
             conversation_id=conversation_id,
-            message="Hello! I noticed you have an active workflow in progress. Would you like to resume it or start a new one?",
+            message="Please use the widget below to upload your lead file.",
             actions=[
                 ActionResponse(
-                    type="resume_workflow",
-                    label="Resume Workflow",
-                    payload={"conversation_id": conversation_id}
-                ),
-                ActionResponse(
-                    type="clear_workflow",
-                    label="Start Fresh",
-                    payload={"conversation_id": conversation_id}
+                    type="lead_uploader",
+                    label="Upload Lead File",
+                    payload={}
                 )
             ]
         )
 
-    # 2. Local Intent Router
-    try:
-        routing = await GatewayAgent.route_message(request.message, chat_history)
-        route = routing.get("route", "general")
-    except Exception as e:
-        print(f"Gateway Agent route classification failed: {e}. Defaulting to general.")
-        route = "general"
-        
-    # Direct command sync shortcut (Requirement #2)
-    prefixes = ["remember this:", "remember that:", "save memory:", "remember:"]
-    is_explicit_memory = any(request.message.lower().startswith(p) for p in prefixes)
-    if is_explicit_memory:
-        route = "memory"
-
     # Intercept upload resume request (Resume Uploader Widget)
-    message_lower = request.message.lower().strip()
     is_upload_resume = (
         (routing.get("intent") == "upload_resume" or routing.get("route") == "asset") or
-        ("upload" in message_lower and ("resume" in message_lower or "cv" in message_lower or "file" in message_lower or "asset" in message_lower))
+        ("upload" in message_lower and ("resume" in message_lower or "cv" in message_lower or "portfolio" in message_lower or "asset" in message_lower or "document" in message_lower))
     )
     
-    if is_upload_resume and not any(k in message_lower for k in ["search", "find", "query", "who", "what", "where", "how"]):
+    if is_upload_resume and not any(k in message_lower for k in ["search", "find", "query", "who", "what", "where", "how", "lead"]):
         user_msg = AIMemory(
             user_id=current_user.id,
             conversation_id=conversation_id,

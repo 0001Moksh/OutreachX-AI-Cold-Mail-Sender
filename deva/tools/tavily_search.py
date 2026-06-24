@@ -18,13 +18,38 @@ class TavilySearchTool:
                 payload = {
                     "api_key": self.api_key,
                     "query": query,
-                    "search_depth": "basic",
-                    "max_results": max_results
+                    "search_depth": "advanced",
+                    "max_results": max_results,
+                    "include_answer": True,
+                    "include_raw_content": True
                 }
                 response = await client.post(self.base_url, json=payload)
                 if response.status_code == 200:
                     data = response.json()
-                    return data.get("results", [])
+                    
+                    BLACKLIST = [
+                        "linkedin.com",
+                        "instagram.com",
+                        "facebook.com",
+                        "indeed.com",
+                        "glassdoor.com",
+                        "twitter.com",
+                        "x.com"
+                    ]
+                    
+                    filtered_results = []
+                    for result in data.get("results", []):
+                        url = result.get("url", "").lower()
+                        if any(domain in url for domain in BLACKLIST):
+                            continue
+                        
+                        filtered_results.append({
+                            "title": result.get("title", ""),
+                            "url": result.get("url", ""),
+                            "content": result.get("content", ""),
+                            "raw_content": result.get("raw_content", "")
+                        })
+                    return filtered_results
                 else:
                     print(f"Tavily search failed with status {response.status_code}. Using mock fallback.")
                     return self._mock_search(query, max_results)

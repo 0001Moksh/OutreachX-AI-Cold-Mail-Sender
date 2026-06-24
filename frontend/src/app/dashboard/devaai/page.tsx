@@ -17,6 +17,7 @@ import {
   BrainCircuit,
   ShieldCheck,
   Workflow,
+  Trash2,
 } from "lucide-react";
 
 type ChatRole = "assistant" | "user";
@@ -563,6 +564,35 @@ export default function DevaPage() {
       </div>
 
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
+
+        {/* CLEAR HISTORY BUTTON */}
+        {hasMessages && (
+          <div className="absolute top-4 right-6 z-50">
+            <button
+              onClick={async () => {
+                setMessages([]);
+                window.localStorage.removeItem(`deva_chat_messages_${conversationId}`);
+                try {
+                  await fetch(`${apiUrl}/deva/chat`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${sessionToken}`,
+                    },
+                    body: JSON.stringify({
+                      message: "clear history",
+                      conversation_id: conversationId,
+                    }),
+                  });
+                } catch(e) {}
+              }}
+              className="flex items-center gap-2 rounded-full border border-white/10 bg-[#0A0A0A]/80 px-4 py-2 text-xs text-zinc-400 backdrop-blur-md transition-all hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+            >
+              <Trash2 size={14} />
+              Clear History
+            </button>
+          </div>
+        )}
 
         {/* CHAT AREA */}
         <div

@@ -21,11 +21,13 @@ export default function DevaChatDemo() {
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const [activeLogs, setActiveLogs] = useState<string[]>([]);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto scroll to bottom
+  // Auto scroll chat to bottom without scrolling the whole page
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
   }, [messages, isTyping, activeLogs]);
 
   const handleOptionClick = (option: string) => {
@@ -169,7 +171,7 @@ export default function DevaChatDemo() {
           </div>
 
           {/* Messages Area */}
-          <div className="p-6 h-[400px] overflow-y-auto space-y-6">
+          <div ref={scrollContainerRef} className="p-6 h-[400px] overflow-y-auto space-y-6 scroll-smooth">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
                 <div className="flex gap-x-3 max-w-[85%]">
@@ -246,7 +248,6 @@ export default function DevaChatDemo() {
               </div>
             )}
 
-            <div ref={chatEndRef} />
           </div>
 
           {/* Bottom simulated input bar */}

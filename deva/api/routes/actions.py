@@ -21,15 +21,19 @@ class ActionResponse(BaseModel):
     message: str
     data: Optional[Dict[str, Any]] = None
 
+import os
+
+IS_PRODUCTION = os.getenv("VERCEL") or os.getenv("ENVIRONMENT") == "production"
+
 # Actions routing mapping
 ACTIONS_ROUTING = {
-    "approve_memory": "http://localhost:8002/actions",
-    "create_lead_file": "http://localhost:8003/actions",
-    "upload_asset": "http://localhost:8003/actions",
-    "submit_link": "http://localhost:8003/actions",
-    "save_template": "http://localhost:8004/actions",
-    "widget_template_editor": "http://localhost:8004/actions",
-    "confirm_campaign": "http://localhost:8004/actions"
+    "approve_memory": os.getenv("DEVA_BACKEND_1_URL", "https://deva-backend-1.vercel.app/actions" if IS_PRODUCTION else "http://localhost:8002/actions"),
+    "create_lead_file": os.getenv("DEVA_BACKEND_2_URL", "https://deva-backend-2.vercel.app/actions" if IS_PRODUCTION else "http://localhost:8003/actions"),
+    "upload_asset": os.getenv("DEVA_BACKEND_2_URL", "https://deva-backend-2.vercel.app/actions" if IS_PRODUCTION else "http://localhost:8003/actions"),
+    "submit_link": os.getenv("DEVA_BACKEND_2_URL", "https://deva-backend-2.vercel.app/actions" if IS_PRODUCTION else "http://localhost:8003/actions"),
+    "save_template": os.getenv("DEVA_BACKEND_3_URL", "https://deva-backend-3.vercel.app/actions" if IS_PRODUCTION else "http://localhost:8004/actions"),
+    "widget_template_editor": os.getenv("DEVA_BACKEND_3_URL", "https://deva-backend-3.vercel.app/actions" if IS_PRODUCTION else "http://localhost:8004/actions"),
+    "confirm_campaign": os.getenv("DEVA_BACKEND_3_URL", "https://deva-backend-3.vercel.app/actions" if IS_PRODUCTION else "http://localhost:8004/actions")
 }
 
 @router.post("/actions", response_model=ActionResponse)
@@ -211,15 +215,20 @@ async def execute_action(
             if backend_dir not in sys.path:
                 sys.path.append(backend_dir)
                 
-            from backend.tasks import send_campaign_emails
-            task = send_campaign_emails.delay(str(campaign_id))
+            try:
+                from backend.tasks import send_campaign_emails
+                task = send_campaign_emails.delay(str(campaign_id))
+                task_id_str = str(task.id)
+            except Exception as task_init_err:
+                print(f"Failed to queue Celery campaign task: {task_init_err}")
+                task_id_str = f"local_pending_{uuid.uuid4().hex}"
             
             try:
                 campaign_task = CampaignTask(
                     id=uuid.uuid4(),
                     campaign_id=campaign_id,
                     user_id=current_user.id,
-                    task_id=str(task.id),
+                    task_id=task_id_str,
                     status='PENDING',
                     lead_count=total_leads,
                     created_at=datetime.utcnow(),

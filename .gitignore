@@ -52,3 +52,4 @@ deva_backend_3/.env.production
 deva_backend_2/.env.production
 deva_backend_1/.env.production
 deva/.env.production
+backend/.env.example

@@ -1194,9 +1194,59 @@ export default function Assets() {
                 <div className="h-9 w-9 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
               </div>
             ) : viewingAsset.content ? (
-              <pre className="whitespace-pre-wrap break-words rounded-3xl border border-white/[0.06] bg-black/40 p-6 text-sm leading-7 text-zinc-300">
-                {viewingAsset.content}
-              </pre>
+              (() => {
+                const isHtml = /<([a-z][a-z0-9]*)(\s[^>]*)?>/.test(viewingAsset.content);
+                if (isHtml) {
+                  return (
+                    <div className="rounded-3xl border border-white/[0.06] bg-white shadow-[0_4px_40px_rgba(0,0,0,0.3)] overflow-hidden">
+                      {/* Source type badge */}
+                      <div className="flex items-center gap-2 border-b border-zinc-200 bg-zinc-50 px-6 py-3">
+                        <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">Rendered Content</span>
+                        {viewingAsset.asset_type && (
+                          <span className="rounded-lg bg-zinc-200 px-2 py-0.5 text-xs text-zinc-600">{viewingAsset.asset_type}</span>
+                        )}
+                      </div>
+                      <div
+                        className="asset-html-content p-8 text-zinc-900"
+                        style={{
+                          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+                          lineHeight: "1.75",
+                        }}
+                        dangerouslySetInnerHTML={{ __html: viewingAsset.content }}
+                      />
+                      <style>{`
+                        .asset-html-content h1 { font-size: 1.75rem; font-weight: 700; color: #111; margin: 1.5rem 0 0.75rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; }
+                        .asset-html-content h2 { font-size: 1.35rem; font-weight: 700; color: #222; margin: 1.5rem 0 0.5rem; border-bottom: 1px solid #f3f4f6; padding-bottom: 0.35rem; }
+                        .asset-html-content h3 { font-size: 1.1rem; font-weight: 600; color: #333; margin: 1.25rem 0 0.4rem; }
+                        .asset-html-content h4 { font-size: 0.95rem; font-weight: 600; color: #444; margin: 1rem 0 0.35rem; }
+                        .asset-html-content p { margin: 0.75rem 0; color: #374151; font-size: 0.92rem; }
+                        .asset-html-content a { color: #0891b2; text-decoration: underline; }
+                        .asset-html-content a:hover { color: #06b6d4; }
+                        .asset-html-content ul, .asset-html-content ol { padding-left: 1.5rem; margin: 0.75rem 0; color: #374151; font-size: 0.92rem; }
+                        .asset-html-content ul { list-style-type: disc; }
+                        .asset-html-content ol { list-style-type: decimal; }
+                        .asset-html-content li { margin: 0.35rem 0; }
+                        .asset-html-content code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 5px; padding: 1px 6px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.82rem; color: #0f766e; }
+                        .asset-html-content pre { background: #1e293b; border-radius: 12px; padding: 1.25rem 1.5rem; overflow-x: auto; margin: 1rem 0; }
+                        .asset-html-content pre code { background: transparent; border: none; color: #94a3b8; font-size: 0.82rem; padding: 0; }
+                        .asset-html-content blockquote { border-left: 4px solid #06b6d4; padding-left: 1rem; margin: 1rem 0; color: #6b7280; font-style: italic; }
+                        .asset-html-content strong, .asset-html-content b { font-weight: 700; color: #111; }
+                        .asset-html-content em, .asset-html-content i { font-style: italic; }
+                        .asset-html-content hr { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+                        .asset-html-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+                        .asset-html-content th { background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.5rem 0.75rem; text-align: left; font-weight: 600; color: #374151; }
+                        .asset-html-content td { border: 1px solid #e2e8f0; padding: 0.5rem 0.75rem; color: #374151; }
+                        .asset-html-content img { max-width: 100%; border-radius: 8px; margin: 0.75rem 0; }
+                      `}</style>
+                    </div>
+                  );
+                }
+                return (
+                  <pre className="whitespace-pre-wrap break-words rounded-3xl border border-white/[0.06] bg-black/40 p-6 text-sm leading-7 text-zinc-300">
+                    {viewingAsset.content}
+                  </pre>
+                );
+              })()
             ) : (
               <div className="rounded-3xl border border-amber-400/15 bg-amber-400/5 p-8 text-amber-200">
                 <div className="mb-3 flex items-center gap-2 font-medium">

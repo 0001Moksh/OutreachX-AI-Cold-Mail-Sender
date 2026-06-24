@@ -15,6 +15,7 @@ interface Agent {
 
 export default function MeetDeva() {
   const [selectedAgent, setSelectedAgent] = useState<string>("master");
+  const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
 
   const agents: Agent[] = [
     {
@@ -100,6 +101,7 @@ export default function MeetDeva() {
   ];
 
   const activeAgent = agents.find((a) => a.id === selectedAgent) || agents[0];
+  const visualActiveId = hoveredAgent || selectedAgent;
 
   return (
     <section className="bg-zinc-950 py-24 border-t border-zinc-900" id="deva">
@@ -176,8 +178,8 @@ export default function MeetDeva() {
                       y1="50%"
                       x2={`${agent.coordinates.x}%`}
                       y2={`${agent.coordinates.y}%`}
-                      stroke={selectedAgent === agent.id ? "rgba(34, 211, 238, 0.4)" : "rgba(63, 63, 70, 0.15)"}
-                      strokeWidth={selectedAgent === agent.id ? "2" : "1"}
+                      stroke={visualActiveId === agent.id ? "rgba(34, 211, 238, 0.4)" : "rgba(63, 63, 70, 0.15)"}
+                      strokeWidth={visualActiveId === agent.id ? "2" : "1"}
                       strokeDasharray={agent.id === "sending" || agent.id === "security" ? "4 4" : "0"}
                       className="transition-all duration-300"
                     />
@@ -187,13 +189,15 @@ export default function MeetDeva() {
 
               {/* Nodes */}
               {agents.map((agent) => {
-                const isSelected = selectedAgent === agent.id;
+                const isVisualActive = visualActiveId === agent.id;
                 const isMaster = agent.id === "master";
 
                 return (
                   <button
                     key={agent.id}
                     onClick={() => setSelectedAgent(agent.id)}
+                    onMouseEnter={() => setHoveredAgent(agent.id)}
+                    onMouseLeave={() => setHoveredAgent(null)}
                     className="absolute z-10 -translate-x-1/2 -translate-y-1/2 cursor-pointer group focus:outline-none"
                     style={{
                       left: `${agent.coordinates.x}%`,
@@ -203,7 +207,7 @@ export default function MeetDeva() {
                     <div className="relative">
                       {/* Selection pulse effect */}
                       <AnimatePresence>
-                        {isSelected && (
+                        {isVisualActive && (
                           <motion.div
                             layoutId="node-pulse"
                             className="absolute -inset-3.5 bg-cyan-400/10 rounded-full blur-sm"
@@ -215,7 +219,7 @@ export default function MeetDeva() {
                       {/* Button capsule */}
                       <div
                         className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-300 ${
-                          isSelected
+                          isVisualActive
                             ? "bg-zinc-900 border-cyan-400 shadow-lg shadow-cyan-400/10 scale-110"
                             : isMaster
                             ? "bg-zinc-950 border-zinc-800 hover:border-cyan-400 hover:scale-105"
@@ -226,7 +230,7 @@ export default function MeetDeva() {
                       </div>
 
                       {/* Tooltip Label */}
-                      <span className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[9px] font-medium font-mono text-zinc-400 group-hover:text-white transition-colors whitespace-nowrap z-20 ${isSelected ? "text-cyan-400 border-cyan-400/30" : ""}`}>
+                      <span className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[9px] font-medium font-mono text-zinc-400 group-hover:text-white transition-colors whitespace-nowrap z-20 ${isVisualActive ? "text-cyan-400 border-cyan-400/30" : ""}`}>
                         {agent.name.split(" ")[0]}
                       </span>
                     </div>

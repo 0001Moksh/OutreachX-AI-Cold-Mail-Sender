@@ -25,10 +25,11 @@ class LeadAgent:
         
         # 2. Execute Tavily search
         search_tool = TavilySearchTool()
-        search_results = await search_tool.search(query, max_results=5)
+        search_results = await search_tool.search(query, max_results=25)
         
         # 3. Parse/Extract leads from search results
         extracted_leads = []
+        parsed = {}
         has_mock_leads = any("raw_lead" in r for r in search_results)
         
         if has_mock_leads:
@@ -39,8 +40,11 @@ class LeadAgent:
         else:
             if search_results:
                 extraction_prompt = """You are an expert lead parser. Extract structured leads from the search results content.
-For each lead, you must find a valid email address. Do NOT create or fabricate fake email addresses (such as @example.com, @sample.com, @domain.com, etc.). Only extract real email addresses mentioned in the text.
-If no valid email is found for a lead, skip that lead.
+For each lead, extract the company details.
+If an email is available, extract it. Do NOT create or fabricate fake email addresses (such as @example.com, @sample.com, @domain.com).
+If no valid email is found, return an empty string for the email field.
+
+CRITICAL INSTRUCTION: You MUST extract ALL possible distinct companies from the text. DO NOT STOP at just 1. Find as many as you can, up to 20!
 
 Output a JSON object with a "leads" key containing a list of leads:
 {
@@ -48,7 +52,7 @@ Output a JSON object with a "leads" key containing a list of leads:
     {
       "company_name": "Company Name",
       "contact_name": "Contact Person Name (or 'Unknown')",
-      "email": "real_email@address.com",
+      "email": "real_email@address.com (or empty string)",
       "website": "http://...",
       "location": "Location (or 'Global')",
       "role": "Role (or 'Executive')"
@@ -66,44 +70,66 @@ Output a JSON object with a "leads" key containing a list of leads:
                     print(f"Failed to parse search results with LLM: {e}")
 
         # Clean duplicates
-        seen_emails = set()
+        seen_identifiers = set()
         unique_leads = []
         for lead in extracted_leads:
             email = lead.get("email", "").lower()
-            # Verify it's not a generic example/sample domain
-            if not email:
+            company = lead.get("company_name", "").lower()
+            
+            identifier = email if email else company
+            if not identifier:
                 continue
-            is_fake = any(fake in email for fake in ["@example.com", "@sample.com", "@domain.com"])
-            if email and email not in seen_emails and not is_fake:
-                seen_emails.add(email)
+                
+            is_fake_email = email and any(fake in email for fake in ["@example.com", "@sample.com", "@domain.com"])
+            if is_fake_email:
+                lead["email"] = ""
+                identifier = company
+                
+            if identifier not in seen_identifiers:
+                seen_identifiers.add(identifier)
                 unique_leads.append(lead)
 
         if not unique_leads:
-            return {
-                "message": "I am not able to search in this current situation.",
-                "actions": [],
-                "leads": []
-            }
+            # Check if it was an API failure
+            api_failed = search_spec.get("error") or (not has_mock_leads and parsed.get("error"))
+            
+            if api_failed:
+                return {
+                    "message": "⚠️ **API Usage Limit Reached**\n\nPlease try using the Lead Agent again after some time. Our system is currently facing API limitations (such as daily token usage limits) from our intelligence provider. I will be fully operational again shortly to find leads for you!",
+                    "actions": [],
+                    "leads": []
+                }
+            else:
+                return {
+                    "message": "I could not find any valid leads matching your exact criteria. Please try broadening your search or location.",
+                    "actions": [],
+                    "leads": []
+                }
 
         # Prepare action for approval
         file_name = f"Leads_{filters.get('role', 'Prospects').replace(' ', '_')}_{filters.get('location', 'Global').replace(' ', '_')}.csv"
         
         widget_action = {
-            "type": "create_lead_file", # Handled via /deva/actions
-            "label": f"Create Lead List: {file_name}",
+            "type": "create_lead_file",
+            "label": f"Save Leads to Database",
             "payload": {
                 "file_name": file_name,
                 "leads": unique_leads
             }
         }
         
-        message = f"I searched and discovered {len(unique_leads)} prospect leads matching your criteria ({filters.get('role')} in {filters.get('location')}).\n\n"
-        for lead in unique_leads[:3]:
-            message += f"- **{lead['contact_name']}** ({lead['role']}) at *{lead['company_name']}* ({lead['email']})\n"
-        if len(unique_leads) > 3:
-            message += f"...and {len(unique_leads)-3} more.\n\n"
+        message = f"I searched and discovered **{len(unique_leads)} prospect leads** matching your criteria.\n\n"
+        message += "| Company | Contact | Email | Website |\n|---|---|---|---|\n"
+        for lead in unique_leads:
+            c_name = lead.get('company_name', '')
+            contact = lead.get('contact_name', '')
+            email = lead.get('email', '')
+            web = lead.get('website', '')
+            message += f"| {c_name} | {contact} | {email} | {web} |\n"
             
-        message += "Would you like me to save these prospects to a new lead list file?"
+        message += "\n"
+            
+        message += f"Shall I proceed with saving these prospects to your lead module as `{file_name}`?"
         
         return {
             "message": message,

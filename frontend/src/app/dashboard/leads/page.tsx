@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { getApiUrl } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,8 @@ import {
   ChevronRight,
   CheckCircle2,
   AlertCircle,
+  RefreshCw,
+  XCircle,
 } from "lucide-react";
 
 export default function Leads() {
@@ -25,6 +27,7 @@ export default function Leads() {
 
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchingLeads, setFetchingLeads] = useState(true);
 
   const [uploading, setUploading] = useState(false);
   const [leadFiles, setLeadFiles] = useState<any[]>([]);
@@ -37,9 +40,26 @@ export default function Leads() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         router.push("/login");
+        setLoading(false);
+        setFetchingLeads(false);
       } else {
         setSession(session);
-        fetchLeadFiles(session.access_token);
+
+        // Serve cached data instantly to avoid blank screen on module switch
+        const cached = window.localStorage.getItem("cached_leads");
+        if (cached) {
+          try {
+            setLeadFiles(JSON.parse(cached));
+            setFetchingLeads(false); // show cached data immediately
+          } catch (e) {
+            console.error("Failed to parse cached leads", e);
+          }
+        }
+
+        // Background refresh from API
+        fetchLeadFiles(session.access_token).finally(() => {
+          setFetchingLeads(false);
+        });
       }
 
       setLoading(false);
@@ -60,10 +80,11 @@ export default function Leads() {
         if (data.success) {
           const formatted = data.data.map((a: any) => ({
             ...a,
-            status: "success",
+            // Keep server status as-is (ready / failed / processing)
           }));
 
           setLeadFiles(formatted);
+          window.localStorage.setItem("cached_leads", JSON.stringify(formatted));
         }
       }
     } catch (err) {
@@ -72,11 +93,24 @@ export default function Leads() {
   };
 
   const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
+    retryFileId?: string
   ) => {
     const file = e.target.files?.[0];
 
     if (!file) return;
+
+    if (retryFileId) {
+      // Optimistically remove the old failed card before uploading the new one
+      handleDelete(retryFileId, true);
+    }
+
+    // Client-side size guard (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert(`File too large (${Math.round(file.size / (1024 * 1024))}MB). Maximum is 10MB.`);
+      e.target.value = "";
+      return;
+    }
 
     const tempId = "temp-" + Date.now();
 
@@ -86,6 +120,7 @@ export default function Leads() {
       status: "pending",
       created_at: new Date().toISOString(),
       columns: [],
+      row_count: 0,
     };
 
     setLeadFiles((prev) => [newFile, ...prev]);
@@ -108,32 +143,40 @@ export default function Leads() {
       if (res.ok) {
         const data = await res.json();
 
-        setLeadFiles((prev) =>
-          prev.map((a) =>
+        setLeadFiles((prev) => {
+          const updated = prev.map((a) =>
             a.id === tempId
               ? {
                 ...a,
                 id: data.data.lead_id,
                 file_name: data.data.file_name,
-                status: "success",
+                status: data.data.status || "ready",
                 columns: data.data.columns,
+                row_count: data.data.row_count || 0,
               }
               : a
-          )
-        );
+          );
+          window.localStorage.setItem("cached_leads", JSON.stringify(updated));
+          return updated;
+        });
       } else {
-        setLeadFiles((prev) =>
-          prev.map((a) =>
-            a.id === tempId
-              ? {
-                ...a,
-                status: "error",
-              }
-              : a
-          )
-        );
-
-        alert("Upload failed.");
+        // Server returned error — but might have persisted a failed record
+        // Re-fetch to get the actual state from DB
+        if (session?.access_token) {
+          await fetchLeadFiles(session.access_token);
+        } else {
+          setLeadFiles((prev) =>
+            prev.map((a) =>
+              a.id === tempId
+                ? {
+                  ...a,
+                  status: "failed",
+                  error_message: "Upload failed. Please try again.",
+                }
+                : a
+            )
+          );
+        }
       }
     } catch (err) {
       console.error(err);
@@ -143,7 +186,8 @@ export default function Leads() {
           a.id === tempId
             ? {
               ...a,
-              status: "error",
+              status: "failed",
+              error_message: "Network error. Please try again.",
             }
             : a
         )
@@ -154,17 +198,21 @@ export default function Leads() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const ok = confirm(
-      "Are you sure you want to delete this file?"
-    );
+  const handleDelete = async (id: string, skipConfirm = false) => {
+    if (!skipConfirm) {
+      const ok = confirm(
+        "Are you sure you want to delete this file?"
+      );
 
-    if (!ok) return;
+      if (!ok) return;
+    }
 
-    // Optimistic UI Update
-    setLeadFiles((prev) =>
-      prev.filter((f) => f.id !== id)
-    );
+    // Optimistic UI Update + cache
+    setLeadFiles((prev) => {
+      const updated = prev.filter((f) => f.id !== id);
+      window.localStorage.setItem("cached_leads", JSON.stringify(updated));
+      return updated;
+    });
 
     try {
       const res = await fetch(`${apiUrl}/leads/${id}`, {
@@ -272,8 +320,45 @@ export default function Leads() {
             </div>
           )}
 
+          {/* Skeleton loading state */}
+          {fetchingLeads && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-xl p-6"
+                >
+                  {/* Shimmer overlay */}
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.6s_infinite] bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+                  <style>{`
+                    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+                  `}</style>
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="w-14 h-14 rounded-2xl bg-zinc-800 animate-pulse" />
+                    <div className="w-5 h-5 rounded-full bg-zinc-800 animate-pulse" />
+                  </div>
+                  <div className="h-5 w-3/4 rounded-xl bg-zinc-800 animate-pulse mb-3" />
+                  <div className="h-3 w-1/3 rounded-xl bg-zinc-800/60 animate-pulse mb-6" />
+                  <div className="h-3 w-1/4 rounded-lg bg-zinc-800/40 animate-pulse mb-3" />
+                  <div className="flex gap-2">
+                    <div className="h-6 w-16 rounded-lg bg-zinc-800 animate-pulse" />
+                    <div className="h-6 w-20 rounded-lg bg-zinc-800 animate-pulse" />
+                    <div className="h-6 w-12 rounded-lg bg-zinc-800 animate-pulse" />
+                  </div>
+                  <div className="mt-8 pt-5 border-t border-zinc-800 flex flex-col gap-3">
+                    <div className="h-11 w-full rounded-2xl bg-zinc-800 animate-pulse" />
+                    <div className="flex gap-3">
+                      <div className="h-11 flex-1 rounded-2xl bg-zinc-800/60 animate-pulse" />
+                      <div className="h-11 w-12 rounded-2xl bg-zinc-800/60 animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Empty */}
-          {leadFiles.length === 0 ? (
+          {!fetchingLeads && leadFiles.length === 0 ? (
             <div className="border border-dashed border-zinc-700 rounded-3xl bg-zinc-900/20 p-20 text-center">
               <div className="w-20 h-20 rounded-3xl bg-cyan-500/10 flex items-center justify-center mx-auto mb-6">
                 <Database
@@ -303,7 +388,7 @@ export default function Leads() {
                 />
               </label>
             </div>
-          ) : (
+          ) : !fetchingLeads ? (
             <>
               {/* Section Header */}
               <div className="flex items-center justify-between mb-6">
@@ -318,35 +403,62 @@ export default function Leads() {
 
               {/* Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {leadFiles.map((file) => (
+                {leadFiles.map((file) => {
+                  const isFailed = file.status === "failed";
+                  const isProcessing = file.status === "processing";
+                  const isPending = file.status === "pending";
+                  const isReady = file.status === "ready" || file.status === "success";
+                  const isDisabled = isFailed || isProcessing || isPending;
+
+                  return (
                   <div
                     key={file.id}
-                    className="group relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-xl p-6 hover:border-cyan-500/30 transition-all hover:-translate-y-1"
+                    className={`group relative overflow-hidden rounded-3xl border bg-zinc-900/40 backdrop-blur-xl p-6 transition-all hover:-translate-y-1 ${
+                      isFailed
+                        ? "border-red-500/30 hover:border-red-500/50"
+                        : "border-zinc-800 hover:border-cyan-500/30"
+                    }`}
                   >
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-gradient-to-br from-cyan-500/5 to-emerald-500/5" />
+                    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition ${
+                      isFailed
+                        ? "bg-gradient-to-br from-red-500/5 to-red-500/5"
+                        : "bg-gradient-to-br from-cyan-500/5 to-emerald-500/5"
+                    }`} />
 
                     <div className="relative z-10">
-                      {/* Top */}
+                      {/* Top — Icon + Status Badge */}
                       <div className="flex items-start justify-between mb-6">
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                        <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center ${
+                          isFailed
+                            ? "bg-red-500/10 border-red-500/20"
+                            : "bg-emerald-500/10 border-emerald-500/20"
+                        }`}>
                           <FileSpreadsheet
                             size={24}
-                            className="text-emerald-400"
+                            className={isFailed ? "text-red-400" : "text-emerald-400"}
                           />
                         </div>
 
-                        {file.status === "pending" ? (
-                          <div className="w-5 h-5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
-                        ) : file.status === "error" ? (
-                          <AlertCircle
-                            size={18}
-                            className="text-red-400"
-                          />
+                        {isPending ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-400/10 border border-amber-400/20">
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                            <span className="text-[11px] font-medium text-amber-300">Uploading</span>
+                          </div>
+                        ) : isProcessing ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-400/10 border border-amber-400/20">
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                            <span className="text-[11px] font-medium text-amber-300">Processing</span>
+                          </div>
+                        ) : isFailed ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-400/10 border border-red-400/20">
+                            <XCircle size={13} className="text-red-400" />
+                            <span className="text-[11px] font-medium text-red-300">Failed</span>
+                          </div>
                         ) : (
-                          <CheckCircle2
-                            size={20}
-                            className="text-emerald-400"
-                          />
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-400/10 border border-emerald-400/20">
+                            <CheckCircle2 size={13} className="text-emerald-400" />
+                            <span className="text-[11px] font-medium text-emerald-300">Ready</span>
+                          </div>
                         )}
                       </div>
 
@@ -358,13 +470,29 @@ export default function Leads() {
                         {file.file_name}
                       </h3>
 
-                      <p className="text-sm text-zinc-500 mt-2">
-                        {new Date(
-                          file.created_at
-                        ).toLocaleDateString()}
-                      </p>
+                      {/* Date + Row Count */}
+                      <div className="flex items-center gap-3 mt-2">
+                        <p className="text-sm text-zinc-500">
+                          {new Date(file.created_at).toLocaleDateString()}
+                        </p>
+                        {file.row_count > 0 && (
+                          <span className="text-xs text-zinc-500 px-2 py-0.5 rounded-md bg-zinc-800/60">
+                            {file.row_count.toLocaleString()} rows
+                          </span>
+                        )}
+                      </div>
 
-                      {/* Columns */}
+                      {/* Error Banner (for failed uploads) */}
+                      {isFailed && file.error_message && (
+                        <div className="mt-4 px-3 py-2.5 rounded-xl border border-red-500/15 bg-red-500/5">
+                          <p className="text-xs text-red-300/80 line-clamp-2" title={file.error_message}>
+                            {file.error_message}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Columns (only if not failed) */}
+                      {!isFailed && (
                       <div className="mt-6">
                         <p className="text-xs uppercase tracking-wider text-zinc-500 mb-3">
                           Detected Columns
@@ -397,41 +525,83 @@ export default function Leads() {
                           )}
                         </div>
                       </div>
+                      )}
 
                       {/* Actions */}
                       <div className="mt-8 pt-5 border-t border-zinc-800 flex flex-col gap-3">
-                        <button
-                          onClick={() =>
-                            handleViewData(file)
-                          }
-                          className="w-full py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium flex items-center justify-center gap-2 transition"
-                        >
-                          <Eye size={16} />
-                          View Data
-                        </button>
+                        {/* Failed state: show retry + delete */}
+                        {isFailed ? (
+                          <div className="flex gap-3">
+                            <label className="flex-1 py-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-sm font-medium transition flex items-center justify-center gap-2 cursor-pointer">
+                              <RefreshCw size={16} />
+                              Retry Upload
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => handleFileUpload(e, file.id)}
+                                accept=".csv,.xls,.xlsx"
+                              />
+                            </label>
 
-                        <div className="flex gap-3">
-                          <button className="flex-1 py-3 rounded-2xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-sm font-medium transition flex items-center justify-center gap-2">
-                            <Plus size={16} />
-                            Use in Campaign
-                          </button>
+                            <button
+                              onClick={() =>
+                                handleDelete(file.id)
+                              }
+                              className="w-12 h-12 rounded-2xl bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition flex items-center justify-center"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() =>
+                                handleViewData(file)
+                              }
+                              disabled={isDisabled}
+                              className={`w-full py-3 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 transition ${
+                                isDisabled
+                                  ? "bg-zinc-800/50 text-zinc-600 cursor-not-allowed"
+                                  : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                              }`}
+                            >
+                              <Eye size={16} />
+                              View Data
+                            </button>
 
-                          <button
-                            onClick={() =>
-                              handleDelete(file.id)
-                            }
-                            className="w-12 h-12 rounded-2xl bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition flex items-center justify-center"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                            <div className="flex gap-3">
+                              <button
+                                disabled={isDisabled}
+                                className={`flex-1 py-3 rounded-2xl text-sm font-medium transition flex items-center justify-center gap-2 ${
+                                  isDisabled
+                                    ? "bg-cyan-500/5 text-cyan-800 cursor-not-allowed"
+                                    : "bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300"
+                                }`}
+                              >
+                                <Plus size={16} />
+                                Use in Campaign
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  handleDelete(file.id)
+                                }
+                                className="w-12 h-12 rounded-2xl bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 transition flex items-center justify-center"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </>
-          )}
+          ) : null}
+
         </div>
       </div>
 

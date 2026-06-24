@@ -115,7 +115,7 @@ export default function DashboardLayout({
       exit={mobile ? { x: -320 } : undefined}
       transition={{ duration: 0.25, ease: "easeOut" }}
       className={`${mobile ? "fixed inset-y-0 left-0 z-50 w-80" : `hidden ${sidebarWidth} lg:flex`
-        } flex-col border-r border-white/[0.07] bg-[#070707]/95 text-white backdrop-blur-2xl transition-all duration-300`}
+        } flex-col border-r border-white/[0.07] bg-[#070707] text-white transition-all duration-300`}
     >
       <div
         className={`relative flex h-20 items-center px-5 ${sidebarOpen || mobile ? "justify-between" : "justify-center"
@@ -222,7 +222,7 @@ export default function DashboardLayout({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
-              className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 z-40 bg-black/70 lg:hidden"
             />
             {renderSidebar(true)}
           </>

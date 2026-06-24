@@ -52,6 +52,28 @@ const COMMON_VARIABLES = [
   "linkedin",
 ];
 
+// Stable color palette for tags — same tag name always maps to same color
+const TAG_COLORS = [
+  { bg: "bg-cyan-500/15",    border: "border-cyan-500/30",    text: "text-cyan-300"    },
+  { bg: "bg-violet-500/15",  border: "border-violet-500/30",  text: "text-violet-300"  },
+  { bg: "bg-emerald-500/15", border: "border-emerald-500/30", text: "text-emerald-300" },
+  { bg: "bg-amber-500/15",   border: "border-amber-500/30",   text: "text-amber-300"   },
+  { bg: "bg-rose-500/15",    border: "border-rose-500/30",    text: "text-rose-300"    },
+  { bg: "bg-blue-500/15",    border: "border-blue-500/30",    text: "text-blue-300"    },
+  { bg: "bg-fuchsia-500/15", border: "border-fuchsia-500/30", text: "text-fuchsia-300" },
+  { bg: "bg-teal-500/15",    border: "border-teal-500/30",    text: "text-teal-300"    },
+  { bg: "bg-orange-500/15",  border: "border-orange-500/30",  text: "text-orange-300"  },
+  { bg: "bg-indigo-500/15",  border: "border-indigo-500/30",  text: "text-indigo-300"  },
+];
+
+const getTagColor = (tag: string) => {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = (hash * 31 + tag.charCodeAt(i)) >>> 0;
+  }
+  return TAG_COLORS[hash % TAG_COLORS.length];
+};
+
 export default function TemplatesPage() {
   const router = useRouter();
   const apiUrl = getApiUrl();
@@ -551,14 +573,17 @@ export default function TemplatesPage() {
                     </p>
 
                     <div className="flex flex-wrap gap-2 mt-6">
-                      {template.tags?.map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-2 py-1 rounded-lg bg-zinc-800 text-xs text-zinc-300"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
+                      {template.tags?.map((tag) => {
+                        const c = getTagColor(tag);
+                        return (
+                          <span
+                            key={tag}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium ${c.bg} ${c.border} ${c.text}`}
+                          >
+                            <span className="opacity-60">#</span>{tag}
+                          </span>
+                        );
+                      })}
                     </div>
 
                     <div className="flex items-center justify-between mt-8 pt-5 border-t border-zinc-800">
@@ -761,33 +786,44 @@ export default function TemplatesPage() {
               }`}
             >
               {/* EDITOR */}
-              <div className="rounded-[32px] border border-zinc-800 bg-zinc-900/40 overflow-hidden backdrop-blur-xl">
+              <div className="rounded-[32px] border border-zinc-800 bg-zinc-900/40 overflow-hidden backdrop-blur-xl flex flex-col">
                 {/* Toolbar */}
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-zinc-800 p-5 bg-zinc-950/80">
-                  <div className="flex items-center gap-2 bg-[#0d0d0d] rounded-2xl p-1 border border-zinc-800">
-                    <button
-                      onClick={() => setEditorMode("html")}
-                      className={`px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm transition ${
-                        editorMode === "html"
-                          ? "bg-zinc-800 text-cyan-400"
-                          : "text-zinc-500"
-                      }`}
-                    >
-                      <Code size={14} />
-                      HTML
-                    </button>
+                <div className="flex flex-col gap-3 border-b border-zinc-800 p-5 bg-zinc-950/80">
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 bg-[#0d0d0d] rounded-2xl p-1 border border-zinc-800">
+                      <button
+                        onClick={() => setEditorMode("html")}
+                        className={`px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm transition ${
+                          editorMode === "html"
+                            ? "bg-zinc-800 text-cyan-400"
+                            : "text-zinc-500"
+                        }`}
+                      >
+                        <Code size={14} />
+                        HTML
+                      </button>
 
-                    <button
-                      onClick={() => setEditorMode("text")}
-                      className={`px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm transition ${
-                        editorMode === "text"
-                          ? "bg-zinc-800 text-cyan-400"
-                          : "text-zinc-500"
-                      }`}
-                    >
-                      <AlignLeft size={14} />
-                      Plain Text
-                    </button>
+                      <button
+                        onClick={() => setEditorMode("text")}
+                        className={`px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm transition ${
+                          editorMode === "text"
+                            ? "bg-zinc-800 text-cyan-400"
+                            : "text-zinc-500"
+                        }`}
+                      >
+                        <AlignLeft size={14} />
+                        Plain Text
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Variable guide hint */}
+                  <div className="flex items-start gap-2 rounded-xl border border-cyan-500/10 bg-cyan-500/5 px-3 py-2">
+                    <Braces size={13} className="mt-0.5 shrink-0 text-cyan-400" />
+                    <p className="text-[11px] leading-5 text-zinc-400">
+                      Use <code className="rounded bg-zinc-800 px-1 py-0.5 text-[10px] font-mono text-cyan-300">{"{{variable_name}}"}</code> to insert dynamic values that map to your leads&apos; columns.
+                      <span className="ml-1 text-zinc-500">Click a chip to insert at cursor →</span>
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
@@ -795,9 +831,10 @@ export default function TemplatesPage() {
                       <button
                         key={v}
                         onClick={() => insertVariable(v)}
-                        className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-cyan-500/10 hover:text-cyan-300 border border-zinc-700 text-xs font-mono"
+                        title={`Insert {{${v}}} at cursor`}
+                        className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-cyan-500/10 hover:text-cyan-300 border border-zinc-700 text-xs font-mono transition-all"
                       >
-                        {v}
+                        {`{{${v}}}`}
                       </button>
                     ))}
                   </div>
@@ -869,49 +906,44 @@ export default function TemplatesPage() {
 
               {/* PREVIEW */}
               {showPreview && (
-                <div className="rounded-[32px] border border-zinc-800 bg-zinc-900/40 overflow-hidden backdrop-blur-xl">
+                <div className="rounded-[32px] border border-zinc-800 bg-zinc-900/40 overflow-hidden backdrop-blur-xl flex flex-col min-h-0">
                   {/* MAIL TOP BAR */}
-                  <div className="border-b border-zinc-800 bg-zinc-950 p-5 flex items-center justify-between">
+                  <div className="border-b border-zinc-800 bg-zinc-950 p-5 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-2 text-xs text-zinc-500">
                       <MonitorSmartphone size={14} />
                       Live Mail Preview
                     </div>
                   </div>
 
-                  {/* MAIL BODY */}
-                  <div className="bg-[#f4f4f5] h-[770px] overflow-y-auto p-0">
+                  {/* MAIL BODY — scrollable, no fixed height */}
+                  <div className="flex-1 min-h-0 overflow-y-auto bg-[#f4f4f5] p-4">
                     <div className="max-w-3xl mx-auto">
                       <div className="bg-white rounded-[28px] border border-zinc-200 shadow-[0_20px_80px_rgba(0,0,0,0.08)] overflow-hidden">
                         {/* MAIL HEADER */}
                         <div className="px-8 py-6 border-b border-zinc-200 bg-zinc-50">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h2 className="text-xl font-semibold text-zinc-900">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="min-w-0">
+                              <h2 className="text-lg font-semibold text-zinc-900 leading-snug break-words">
                                 Subject: {formData.subject_line ||
                                   "Untitled Subject Line"}
                               </h2>
 
-                              <div className="mt-3 text-sm text-zinc-500 space-y-1">
+                              <div className="mt-2 text-sm text-zinc-500">
                                 <p>
-                                  <span className="font-medium text-zinc-700">
-                                    To:
-                                  </span>{" "}
+                                  <span className="font-medium text-zinc-700">To:</span>{" "}
                                   Alex Rivera
                                 </p>
                               </div>
                             </div>
 
-                            <div className="w-12 h-12 rounded-2xl bg-red-500 flex items-center justify-center">
-                              <Mail
-                                size={20}
-                                className="text-white-500"
-                              />
+                            <div className="shrink-0 w-12 h-12 rounded-2xl bg-red-500 flex items-center justify-center">
+                              <Mail size={20} className="text-white" />
                             </div>
                           </div>
                         </div>
 
                         {/* MAIL CONTENT */}
-                        <div className="px-8 py-10 bg-white">
+                        <div className="px-8 py-10 bg-white overflow-x-auto">
                           <div
                             className={`max-w-none text-black ${
                               editorMode === "text"

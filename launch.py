@@ -23,21 +23,55 @@ else:
 
 def print_banner():
     banner = fr"""
-{CYAN}{BOLD}======================================================================
-     ____         _                  _     __  __       ____  ____  
-    / __ \__  __ | |_ _ __ ___  __ _| |__  \ \/ /      / __ \/ ___| 
-   / / / / / / / | __| '__/ _ \/ _` | '_ \  \  /______/ / / /\___ \ 
-  / /_/ / /_/ /  | |_| | |  __/ (_| | | | | /  \______/ /_/ /  ___) |
-  \____/\__,_/    \__|_|  \___|\__,_|_| |_|/_/\_\     \____/  |____/ 
-                                                                    
-                     AI Outreach Operating System
-======================================================================{RESET}
-  * Virtual Environment: {YELLOW}myenv{RESET}
-  * Platform: {YELLOW}{sys.platform.upper()}{RESET}
-  * Time Started: {YELLOW}{time.strftime('%Y-%m-%d %H:%M:%S')}{RESET}
-======================================================================
+{CYAN}{BOLD}
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║   ██████╗ ██╗   ██╗████████╗██████╗ ███████╗ █████╗  ██████╗██╗  ██╗██╗  ██╗ ║
+║  ██╔═══██╗██║   ██║╚══██╔══╝██╔══██╗██╔════╝██╔══██╗██╔════╝██║  ██║╚██╗██╔╝ ║
+║  ██║   ██║██║   ██║   ██║   ██████╔╝█████╗  ███████║██║     ███████║ ╚███╔╝  ║
+║  ██║   ██║██║   ██║   ██║   ██╔══██╗██╔══╝  ██╔══██║██║     ██╔══██║ ██╔██╗  ║
+║  ╚██████╔╝╚██████╔╝   ██║   ██║  ██║███████╗██║  ██║╚██████╗██║  ██║██╔╝ ██╗ ║
+║   ╚═════╝  ╚═════╝    ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ║
+║                                                                              ║
+║  ██████╗ ███████╗██╗   ██╗ █████╗                                            ║
+║  ██╔══██╗██╔════╝██║   ██║██╔══██╗                                           ║
+║  ██║  ██║█████╗  ██║   ██║███████║                                           ║
+║  ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══██║                                           ║
+║  ██████╔╝███████╗ ╚████╔╝ ██║  ██║                                           ║
+║  ╚═════╝ ╚══════╝  ╚═══╝  ╚═╝  ╚═╝                                           ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+{MAGENTA}                 ◈ AI OUTREACH OPERATING SYSTEM ◈{RESET}
+
+{GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}
+
+  {YELLOW}◉ SYSTEM:{RESET}            DEVA Autonomous Intelligence Core
+  {YELLOW}◉ VERSION:{RESET}           v3.0 Enterprise Edition
+  {YELLOW}◉ BUILDER:{RESET}           Moksh Bhardwaj
+  {YELLOW}◉ ORGANIZATION:{RESET}      OutreachX Technologies
+  {YELLOW}◉ ENVIRONMENT:{RESET}       myenv
+  {YELLOW}◉ PLATFORM:{RESET}          {sys.platform.upper()}
+  {YELLOW}◉ STARTED:{RESET}           {time.strftime('%Y-%m-%d %H:%M:%S')}
+
+{GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}
+
+  [✓] Memory Engine Initialized
+  [✓] Agent Runtime Online
+  [✓] Workflow Orchestrator Ready
+  [✓] LLM Gateway Connected
+  [✓] Vector Intelligence Active
+  [✓] Campaign Engine Armed
+  [✓] Autonomous Execution Enabled
+
+{CYAN}
+          "Building Autonomous Businesses Through AI"
+{RESET}
+
+{GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{RESET}
 """
     print(banner)
+
 
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
