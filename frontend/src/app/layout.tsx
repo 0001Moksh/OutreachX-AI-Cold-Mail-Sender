@@ -5,10 +5,12 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space" });
 
-export const metadata: Metadata = {
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
   title: "OutreachX Dashboard",
   description: "AI-Powered Cold Outreach Operating System",
-};
+});
 
 export default function RootLayout({
   children,
