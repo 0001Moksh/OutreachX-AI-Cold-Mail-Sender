@@ -34,44 +34,37 @@ async def health_check():
 
 # --- Campaign Tools ---
 @tool
-@trace_function("Tool: fetch_user_context")
 async def fetch_user_context(user_id: str) -> str:
     """Fetches user profile, memory, and existing assets."""
     return "User context: Software Engineer targeting AI startups."
 
 @tool
-@trace_function("Tool: search_existing_leads")
 async def search_existing_leads(user_id: str) -> str:
     """Queries DB for existing leads."""
     return "Found 1 lead list: 'AI Startups in Gurugram'"
 
 @tool
-@trace_function("Tool: search_existing_templates")
 async def search_existing_templates(user_id: str) -> str:
     """Queries DB for existing templates."""
     return "Found 1 template: 'AI Internship Outreach'"
 
 @tool
-@trace_function("Tool: propose_variable_mapping")
 async def propose_variable_mapping(lead_columns: list, template_variables: list) -> str:
     """Maps lead columns to template variables."""
     return json.dumps({var: f"Mapped to {var}" for var in template_variables})
 
 @tool
-@trace_function("Tool: send_test_email")
 async def send_test_email(user_id: str, template_id: str) -> str:
     """Simulates sending a test email."""
     return "Test email generated and queued."
 
 # --- Template Tools ---
 @tool
-@trace_function("Tool: extract_brand_voice")
 async def extract_brand_voice(context: str) -> str:
     """Extracts tone and brand voice from past templates or resume."""
     return "Professional, concise, and enthusiastic."
 
 @tool
-@trace_function("Tool: generate_template_variations")
 async def generate_template_variations(intent: str, variables: List[str]) -> str:
     """Generates 3 variations of an email template."""
     return "1. Formal Variation\n2. Casual Variation\n3. Short Variation"

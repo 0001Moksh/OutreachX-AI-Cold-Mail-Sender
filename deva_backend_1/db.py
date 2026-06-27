@@ -11,7 +11,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
 # Global Redis client
-redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+redis_client = redis.from_url(REDIS_URL, decode_responses=True, protocol=2)
 
 async def get_db_pool():
     return await asyncpg.create_pool(

@@ -179,11 +179,15 @@ async def execute_agent(request: Request):
             
             await event_queue.put({"type": "success", "message": "General processing completed.", "cost_estimate": 0.0})
         except Exception as e:
+            fallback_msg = "Our agents are currently busy due to high usage. Please try again later."
             await event_queue.put({
-                "type": "agent_unavailable",
-                "reason": f"General Agent failed: {str(e)}",
-                "recoverable": False,
-                "suggested_agent": None
+                "type": "partial_output",
+                "content": fallback_msg
+            })
+            await event_queue.put({
+                "type": "success", 
+                "message": f"General Agent fallback triggered: {str(e)}", 
+                "cost_estimate": 0.0
             })
         finally:
             await event_queue.put(None)

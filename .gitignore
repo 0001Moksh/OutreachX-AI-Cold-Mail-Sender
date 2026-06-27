@@ -48,6 +48,8 @@ frontend/.env.local
 Untitled.ipynb
 
 # env production
+deva_backend_5/.env.production
+deva_backend_4/.env.production
 deva_backend_3/.env.production
 deva_backend_2/.env.production
 deva_backend_1/.env.production
