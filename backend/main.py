@@ -1238,6 +1238,34 @@ async def get_templates(
         )
 
 
+@app.get("/templates/{template_id}", response_model=schemas.APIResponse)
+async def get_template(
+    template_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get a single template by ID with full content."""
+    try:
+        template = db.query(models.Template).filter(
+            models.Template.id == template_id,
+            models.Template.user_id == current_user.id
+        ).first()
+
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+
+        return schemas.APIResponse(
+            success=True,
+            data=serialize_template(template)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
 @app.post("/templates", response_model=schemas.APIResponse)
 async def create_template(
     template_data: schemas.TemplateCreate,
@@ -1499,6 +1527,9 @@ async def get_campaign(
         if not campaign:
             raise HTTPException(status_code=404, detail="Campaign not found")
             
+        leads = db.query(models.Lead).filter(models.Lead.campaign_id == campaign_id).all()
+        lead_files = list(set([l.file_name for l in leads if hasattr(l, "file_name") and l.file_name]))
+            
         return schemas.APIResponse(
             success=True,
             data={
@@ -1511,12 +1542,273 @@ async def get_campaign(
                 "total_leads": campaign.total_leads,
                 "sent_count": campaign.sent_count,
                 "failed_count": campaign.failed_count,
+                "replied_count": getattr(campaign, "replied_count", 0),
+                "bounced_count": getattr(campaign, "bounced_count", 0),
+                "lead_files": lead_files,
                 "created_at": campaign.created_at
             }
         )
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/campaigns/{campaign_id}/analytics/details", response_model=schemas.APIResponse)
+async def get_campaign_analytics_details(
+    campaign_id: str,
+    status_filter: Optional[str] = None,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Check if campaign exists and belongs to user
+        campaign = db.query(models.Campaign).filter(
+            models.Campaign.id == campaign_id,
+            models.Campaign.user_id == current_user.id
+        ).first()
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+
+        query = db.query(models.EmailLog).filter(models.EmailLog.campaign_id == campaign_id)
+        
+        if status_filter:
+            if status_filter == "sent":
+                query = query.filter(models.EmailLog.status.in_(["sent", "replied", "bounced"]))
+            elif status_filter == "replied":
+                query = query.filter(models.EmailLog.status == "replied")
+            elif status_filter == "failed":
+                query = query.filter(models.EmailLog.status.in_(["failed", "bounced"]))
+                
+        logs = query.all()
+        
+        data = [{
+            "email": log.lead_email,
+            "status": log.status,
+            "sent_at": log.sent_at,
+            "replied_at": log.replied_at,
+            "bounced_at": getattr(log, "bounced_at", None),
+            "error": getattr(log, "last_error", None) or getattr(log, "bounce_reason", None)
+        } for log in logs]
+        
+        return schemas.APIResponse(success=True, data=data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/campaigns/{campaign_id}/refresh-replies", response_model=schemas.APIResponse)
+async def refresh_campaign_replies(
+    campaign_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        campaign = db.query(models.Campaign).filter(
+            models.Campaign.id == campaign_id,
+            models.Campaign.user_id == current_user.id
+        ).first()
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+
+        from backend.imap_scanner import IMAPScanner
+        from backend.email_service import decrypt_credential
+
+        # Get all distinct credentials used in this campaign
+        logs = db.query(models.EmailLog).filter(
+            models.EmailLog.campaign_id == campaign_id,
+            models.EmailLog.status.in_(["sent", "replied", "bounced"])
+        ).all()
+        
+        if not logs:
+            return schemas.APIResponse(success=True, message="No sent emails to check", data={"replied_count": getattr(campaign, "replied_count", 0)})
+            
+        cred_map = {}
+        for log in logs:
+            if log.email_credential_id and log.email_credential_id not in cred_map:
+                cred = db.query(models.EmailCredential).filter(models.EmailCredential.id == log.email_credential_id).first()
+                if cred: cred_map[log.email_credential_id] = cred
+
+        new_replies_count = 0
+        since_date = campaign.started_at or campaign.created_at
+
+        for cred_id, cred in cred_map.items():
+            try:
+                pwd = decrypt_credential(cred.encrypted_password)
+                mail = IMAPScanner.connect(cred.email_address, pwd, cred.provider)
+                
+                # Get target emails for this specific credential
+                target_emails = [l.lead_email for l in logs if l.email_credential_id == cred_id and l.status != "replied"]
+                if not target_emails:
+                    continue
+                    
+                replied = IMAPScanner.get_replied_emails(mail, since_date, target_emails)
+                
+                for email_address in replied:
+                    log_to_update = next((l for l in logs if l.lead_email == email_address), None)
+                    if log_to_update and log_to_update.status != "replied":
+                        log_to_update.status = "replied"
+                        log_to_update.replied_at = datetime.utcnow()
+                        new_replies_count += 1
+            except Exception as e:
+                # If auth fails, notify user
+                raise HTTPException(status_code=400, detail=f"Failed to check replies for {cred.email_address}. Please verify app password. Error: {str(e)}")
+                
+        if new_replies_count > 0:
+            campaign.replied_count = (getattr(campaign, "replied_count", 0) or 0) + new_replies_count
+            db.commit()
+            
+        return schemas.APIResponse(success=True, message=f"Found {new_replies_count} new replies", data={"replied_count": getattr(campaign, "replied_count", 0)})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/campaigns/{campaign_id}/refresh-failed", response_model=schemas.APIResponse)
+async def refresh_campaign_failed(
+    campaign_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        campaign = db.query(models.Campaign).filter(
+            models.Campaign.id == campaign_id,
+            models.Campaign.user_id == current_user.id
+        ).first()
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+
+        from backend.imap_scanner import IMAPScanner
+        from backend.email_service import decrypt_credential
+
+        logs = db.query(models.EmailLog).filter(
+            models.EmailLog.campaign_id == campaign_id,
+            models.EmailLog.status.in_(["sent", "replied"])
+        ).all()
+        
+        if not logs:
+            return schemas.APIResponse(success=True, message="No sent emails to check", data={"failed_count": campaign.failed_count})
+            
+        cred_map = {}
+        for log in logs:
+            if log.email_credential_id and log.email_credential_id not in cred_map:
+                cred = db.query(models.EmailCredential).filter(models.EmailCredential.id == log.email_credential_id).first()
+                if cred: cred_map[log.email_credential_id] = cred
+
+        new_bounced_count = 0
+        since_date = campaign.started_at or campaign.created_at
+
+        for cred_id, cred in cred_map.items():
+            try:
+                pwd = decrypt_credential(cred.encrypted_password)
+                mail = IMAPScanner.connect(cred.email_address, pwd, cred.provider)
+                
+                target_emails = [l.lead_email for l in logs if l.email_credential_id == cred_id]
+                if not target_emails:
+                    continue
+                    
+                bounced = IMAPScanner.get_bounced_emails(mail, since_date, target_emails)
+                
+                for email_address in bounced:
+                    log_to_update = next((l for l in logs if l.lead_email == email_address), None)
+                    if log_to_update and log_to_update.status not in ["bounced", "failed"]:
+                        log_to_update.status = "bounced"
+                        log_to_update.bounced_at = datetime.utcnow()
+                        log_to_update.bounce_reason = "IMAP bounce detection"
+                        new_bounced_count += 1
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Failed to check bounces for {cred.email_address}. Please verify app password. Error: {str(e)}")
+                
+        if new_bounced_count > 0:
+            campaign.bounced_count = (getattr(campaign, "bounced_count", 0) or 0) + new_bounced_count
+            campaign.failed_count = (campaign.failed_count or 0) + new_bounced_count
+            db.commit()
+            
+        return schemas.APIResponse(success=True, message=f"Found {new_bounced_count} new failed deliveries", data={"failed_count": campaign.failed_count})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/campaigns/{campaign_id}/leads", response_model=schemas.APIResponse)
+async def get_campaign_leads(
+    campaign_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        campaign = db.query(models.Campaign).filter(
+            models.Campaign.id == campaign_id,
+            models.Campaign.user_id == current_user.id
+        ).first()
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+            
+        leads = db.query(models.Lead).filter(models.Lead.campaign_id == campaign_id).all()
+        all_leads_content = []
+        for lead in leads:
+            if lead.content:
+                all_leads_content.extend(lead.content)
+                
+        return schemas.APIResponse(success=True, data=all_leads_content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/campaigns/{campaign_id}/remove-failed-leads", response_model=schemas.APIResponse)
+async def remove_failed_leads(
+    campaign_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        campaign = db.query(models.Campaign).filter(
+            models.Campaign.id == campaign_id,
+            models.Campaign.user_id == current_user.id
+        ).first()
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+            
+        failed_emails = db.query(models.EmailLog.lead_email).filter(
+            models.EmailLog.campaign_id == campaign_id,
+            models.EmailLog.status.in_(["failed", "bounced"])
+        ).all()
+        
+        failed_email_set = {row[0].lower().strip() for row in failed_emails if row[0]}
+        if not failed_email_set:
+            return schemas.APIResponse(success=True, message="No failed emails found to remove")
+            
+        leads = db.query(models.Lead).filter(models.Lead.campaign_id == campaign_id).all()
+        removed_count = 0
+        
+        for lead in leads:
+            if not lead.content or len(lead.content) == 0:
+                continue
+                
+            keys = list(lead.content[0].keys())
+            email_key = next((k for k in keys if "email" in k.lower()), None)
+            if not email_key:
+                continue
+                
+            new_content = []
+            for row in lead.content:
+                val = str(row.get(email_key, "")).strip().lower()
+                if val in failed_email_set:
+                    removed_count += 1
+                else:
+                    new_content.append(row)
+                    
+            if len(new_content) != len(lead.content):
+                lead.content = list(new_content)
+                lead.row_count = len(new_content)
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(lead, "content")
+                
+        if removed_count > 0:
+            campaign.total_leads = (campaign.total_leads or 0) - removed_count
+            db.commit()
+            
+        return schemas.APIResponse(success=True, message=f"Successfully removed {removed_count} failed emails from attached lead files")
+    except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/campaigns/{campaign_id}/mapping", response_model=schemas.APIResponse)
@@ -2583,7 +2875,7 @@ def verify_email_receipt_via_imap(email_address: str, app_password: str, provide
 
         if status_code != "OK" or not messages[0]:
             mail.logout()
-            raise HTTPException(status_code=400, detail="IMAP Verification Failed: Could not locate the test email in inbox.")
+            raise HTTPException(status_code=400, detail="APP Password is Wrong:: Could not locate the test email in inbox.")
 
         for num in messages[0].split():
             mail.store(num, '+FLAGS', '\\Deleted')
@@ -2592,7 +2884,7 @@ def verify_email_receipt_via_imap(email_address: str, app_password: str, provide
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"IMAP Verification Failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"APP Password is Wrong:: {str(e)}")
 
 @app.post("/settings/app-password/verify", response_model=schemas.APIResponse)
 async def verify_app_password(

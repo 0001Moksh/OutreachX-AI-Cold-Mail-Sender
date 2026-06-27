@@ -258,7 +258,7 @@ def start_service(service, root_dir, python_exe, celery_exe, uvicorn_exe):
     )
     return p
 
-def verify_health_endpoint(url, timeout=45):
+def verify_health_endpoint(url, timeout=120):
     start_time = time.time()
     while time.time() - start_time < timeout:
         try:
@@ -294,42 +294,49 @@ def main():
             "port": 8000,
             "cwd": "backend",
             "command": ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
-            "health_endpoint": "http://localhost:8000/docs"
+            "health_endpoint": "http://127.0.0.1:8000/docs"
         },
         {
-            "name": "Deva OS API Gateway",
+            "name": "Deva Backend 1 (Orchestrator)",
             "port": 8001,
-            "cwd": "deva",
-            "command": ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
-            "health_endpoint": "http://localhost:8001/health"
-        },
-        {
-            "name": "Deva Backend 1 (Core/Memory)",
-            "port": 8002,
             "cwd": "deva_backend_1",
-            "command": ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"],
-            "health_endpoint": "http://localhost:8002/health"
+            "command": ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"],
+            "health_endpoint": "http://127.0.0.1:8001/docs"
         },
         {
-            "name": "Deva Backend 2 (Leads/RAG)",
-            "port": 8003,
+            "name": "Deva Backend 2 (Research)",
+            "port": 8002,
             "cwd": "deva_backend_2",
-            "command": ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003", "--reload"],
-            "health_endpoint": "http://localhost:8003/health"
+            "command": ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"],
+            "health_endpoint": "http://127.0.0.1:8002/docs"
         },
         {
-            "name": "Deva Backend 3 (Campaigns)",
-            "port": 8004,
+            "name": "Deva Backend 3 (Lead)",
+            "port": 8003,
             "cwd": "deva_backend_3",
+            "command": ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003", "--reload"],
+            "health_endpoint": "http://127.0.0.1:8003/docs"
+        },
+        {
+            "name": "Deva Backend 4 (Campaign & Template)",
+            "port": 8004,
+            "cwd": "deva_backend_4",
             "command": ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8004", "--reload"],
-            "health_endpoint": "http://localhost:8004/health"
+            "health_endpoint": "http://127.0.0.1:8004/docs"
+        },
+        {
+            "name": "Deva Backend 5 (General)",
+            "port": 8005,
+            "cwd": "deva_backend_5",
+            "command": ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005", "--reload"],
+            "health_endpoint": "http://127.0.0.1:8005/docs"
         },
         {
             "name": "OutreachX Frontend (Next.js)",
             "port": 3000,
             "cwd": "frontend",
             "command": ["npm", "run", "dev"],
-            "health_endpoint": "http://localhost:3000"
+            "health_endpoint": "http://127.0.0.1:3000"
         }
     ]
     

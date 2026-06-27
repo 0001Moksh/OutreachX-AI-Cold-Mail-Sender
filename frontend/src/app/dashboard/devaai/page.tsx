@@ -322,6 +322,7 @@ export default function DevaPage() {
 
   // START WITH EMPTY CHAT
   const [messages, setMessages] = useState<Message[]>([]);
+  const [activeStreamEvents, setActiveStreamEvents] = useState<{agent: string, message: string}[]>([]);
 
   const hasMessages = messages.length > 0;
 
@@ -445,7 +446,7 @@ export default function DevaPage() {
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
 
-    if (!trimmed || !sessionToken || sending) return;
+    if (!trimmed || sending) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -456,52 +457,107 @@ export default function DevaPage() {
 
     setMessage("");
     setSending(true);
+    setActiveStreamEvents([]);
 
     setMessages((prev) => [...prev, userMessage]);
 
+    const assistantMessageId = crypto.randomUUID();
     const startTime = performance.now();
+    let currentConversationId = conversationId || "default_thread";
 
     try {
-      const response = await fetch(`${apiUrl}/deva/chat`, {
+      // Direct call to our new Deva Orchestrator (Backend 1)
+      const response = await fetch("http://localhost:8001/stream_agent", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionToken}`,
         },
         body: JSON.stringify({
-          message: trimmed,
-          conversation_id: conversationId || undefined,
+          prompt: trimmed,
+          user_id: "f5f7dea2-d2f9-431c-8529-aea5cd0fa49a", // Hardcoded mock user for now
+          thread_id: currentConversationId,
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.detail || "Request failed");
+        throw new Error("Request failed");
       }
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
+      
+      if (!reader) throw new Error("No reader");
+      
+      let isFirstChunk = true;
 
-      setConversationId(data.conversation_id);
-
-      window.localStorage.setItem(
-        "deva_conversation_id",
-        data.conversation_id
-      );
-
-      const endTime = performance.now();
-      const elapsed = ((endTime - startTime) / 1000).toFixed(1);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: data.message || "No response received.",
-          actions: data.actions || [],
-          duration: parseFloat(elapsed),
-          isTyping: true,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.replace('data: ', '').trim();
+            if (!dataStr) continue;
+            
+            try {
+              const event = JSON.parse(dataStr);
+              
+              if (event.type === 'status') {
+                setActiveStreamEvents(prev => [...prev, { agent: event.step, message: event.message }]);
+              } else if (event.type === 'partial_output') {
+                if (isFirstChunk) {
+                    setMessages(prev => [...prev, {
+                        id: assistantMessageId,
+                        role: "assistant",
+                        content: event.content,
+                        isTyping: true,
+                        created_at: new Date().toISOString()
+                    }]);
+                    isFirstChunk = false;
+                } else {
+                    setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                            ? { ...msg, content: msg.content + event.content }
+                            : msg
+                    ));
+                }
+              } else if (event.type === 'complete') {
+                const endTime = performance.now();
+                const elapsed = ((endTime - startTime) / 1000).toFixed(1);
+                
+                if (isFirstChunk) {
+                     setMessages(prev => [...prev, {
+                        id: assistantMessageId,
+                        role: "assistant",
+                        content: event.message || "No response received.",
+                        isTyping: false,
+                        duration: parseFloat(elapsed),
+                        created_at: new Date().toISOString()
+                    }]);
+                } else {
+                    setMessages(prev => prev.map(msg => 
+                        msg.id === assistantMessageId 
+                            ? { ...msg, isTyping: false, duration: parseFloat(elapsed) }
+                            : msg
+                    ));
+                }
+                setActiveStreamEvents([]);
+              } else if (event.type === 'error') {
+                 setMessages(prev => [...prev, {
+                    id: crypto.randomUUID(),
+                    role: "assistant",
+                    content: `**Error**: ${event.message}`,
+                    created_at: new Date().toISOString()
+                 }]);
+                 setActiveStreamEvents([]);
+              }
+            } catch (e) {}
+          }
+        }
+      }
     } catch (error) {
       const endTime = performance.now();
       const elapsed = ((endTime - startTime) / 1000).toFixed(1);
@@ -510,14 +566,12 @@ export default function DevaPage() {
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content:
-            error instanceof Error
-              ? error.message
-              : "Something went wrong.",
+          content: error instanceof Error ? error.message : "Something went wrong connecting to Deva Backend 1.",
           duration: parseFloat(elapsed),
           created_at: new Date().toISOString(),
         },
       ]);
+      setActiveStreamEvents([]);
     } finally {
       setSending(false);
     }
@@ -842,12 +896,29 @@ export default function DevaPage() {
                   <div className="relative max-w-[82%] rounded-[28px] border bg-white/[0.035] border-white/[0.06] text-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.30)] px-6 py-5 backdrop-blur-2xl">
                     <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] opacity-60">
                       <Bot size={12} />
-                      Deva
+                      Deva Activity
                     </div>
-                    <div className="flex items-center gap-1.5 py-2">
-                      <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400/90" style={{ animationDelay: '0ms' }} />
-                      <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400/90" style={{ animationDelay: '150ms' }} />
-                      <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400/90" style={{ animationDelay: '300ms' }} />
+                    
+                    <div className="flex flex-col gap-2">
+                      {activeStreamEvents.length > 0 ? (
+                        activeStreamEvents.map((evt, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm text-cyan-300">
+                            <span className="text-cyan-500 font-bold">✓</span> {evt.message}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex items-center gap-1.5 py-2">
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400/90" style={{ animationDelay: '0ms' }} />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400/90" style={{ animationDelay: '150ms' }} />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-400/90" style={{ animationDelay: '300ms' }} />
+                        </div>
+                      )}
+                      
+                      {activeStreamEvents.length > 0 && (
+                         <div className="flex items-center gap-1.5 py-1 mt-1 opacity-70">
+                            <Loader2 size={12} className="animate-spin text-cyan-400" />
+                         </div>
+                      )}
                     </div>
                   </div>
                 </div>

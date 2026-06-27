@@ -64,7 +64,7 @@ export default function HeroSection() {
               className="heading-font text-3xl md:text-6xl lg:text-7xl font-bold leading-[1.05] tracking-tight mb-6"
             >
               OutreachX is an <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-cyan-200 to-white">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-800 via-cyan-300 to-white">
                 AI Operating System
               </span>{" "}
               <br />

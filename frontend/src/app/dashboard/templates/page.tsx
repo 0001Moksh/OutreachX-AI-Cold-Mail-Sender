@@ -54,16 +54,16 @@ const COMMON_VARIABLES = [
 
 // Stable color palette for tags — same tag name always maps to same color
 const TAG_COLORS = [
-  { bg: "bg-cyan-500/15",    border: "border-cyan-500/30",    text: "text-cyan-300"    },
-  { bg: "bg-violet-500/15",  border: "border-violet-500/30",  text: "text-violet-300"  },
+  { bg: "bg-cyan-500/15", border: "border-cyan-500/30", text: "text-cyan-300" },
+  { bg: "bg-violet-500/15", border: "border-violet-500/30", text: "text-violet-300" },
   { bg: "bg-emerald-500/15", border: "border-emerald-500/30", text: "text-emerald-300" },
-  { bg: "bg-amber-500/15",   border: "border-amber-500/30",   text: "text-amber-300"   },
-  { bg: "bg-rose-500/15",    border: "border-rose-500/30",    text: "text-rose-300"    },
-  { bg: "bg-blue-500/15",    border: "border-blue-500/30",    text: "text-blue-300"    },
+  { bg: "bg-amber-500/15", border: "border-amber-500/30", text: "text-amber-300" },
+  { bg: "bg-rose-500/15", border: "border-rose-500/30", text: "text-rose-300" },
+  { bg: "bg-blue-500/15", border: "border-blue-500/30", text: "text-blue-300" },
   { bg: "bg-fuchsia-500/15", border: "border-fuchsia-500/30", text: "text-fuchsia-300" },
-  { bg: "bg-teal-500/15",    border: "border-teal-500/30",    text: "text-teal-300"    },
-  { bg: "bg-orange-500/15",  border: "border-orange-500/30",  text: "text-orange-300"  },
-  { bg: "bg-indigo-500/15",  border: "border-indigo-500/30",  text: "text-indigo-300"  },
+  { bg: "bg-teal-500/15", border: "border-teal-500/30", text: "text-teal-300" },
+  { bg: "bg-orange-500/15", border: "border-orange-500/30", text: "text-orange-300" },
+  { bg: "bg-indigo-500/15", border: "border-indigo-500/30", text: "text-indigo-300" },
 ];
 
 const getTagColor = (tag: string) => {
@@ -117,6 +117,7 @@ export default function TemplatesPage() {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cache: "no-store"
       });
 
       if (res.ok) {
@@ -139,7 +140,7 @@ export default function TemplatesPage() {
         router.push("/login");
       } else {
         setSession(session);
-        
+
         const cached = window.localStorage.getItem("cached_templates");
         if (cached) {
           try {
@@ -149,7 +150,7 @@ export default function TemplatesPage() {
             console.error("Failed to parse cached templates", e);
           }
         }
-        
+
         fetchTemplates(session.access_token).then(() => {
           setLoading(false);
         });
@@ -291,6 +292,7 @@ export default function TemplatesPage() {
           Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify(formData),
+        cache: "no-store"
       });
 
       if (res.ok) {
@@ -344,15 +346,36 @@ export default function TemplatesPage() {
     }
   };
 
-  const openEditor = (template?: Template) => {
+  const openEditor = async (template?: Template) => {
     if (template) {
-      setFormData(template);
+      let fullTemplate = template;
+      if (template.id && session?.access_token) {
+        try {
+          const res = await fetch(`${apiUrl}/templates/${template.id}`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+            cache: "no-store"
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              fullTemplate = data.data;
+            }
+          } else {
+            alert("Warning: Failed to fetch full template. Is the backend updated? Please restart uvicorn.");
+          }
+        } catch (e) {
+          console.error("Failed to fetch full template details", e);
+          alert("Network error: Failed to connect to backend for template.");
+        }
+      }
 
-      if (template.html_content && !template.text_content) {
+      setFormData(fullTemplate);
+
+      if (fullTemplate.html_content && !fullTemplate.text_content) {
         setEditorMode("html");
       }
 
-      if (!template.html_content && template.text_content) {
+      if (!fullTemplate.html_content && fullTemplate.text_content) {
         setEditorMode("text");
       }
     } else {
@@ -370,6 +393,29 @@ export default function TemplatesPage() {
     }
 
     setView("editor");
+  };
+
+  const handlePreview = async (template: Template) => {
+    setPreviewTemplate({ ...template, html_content: "Loading...", text_content: "Loading..." });
+    try {
+      const res = await fetch(`${apiUrl}/templates/${template.id}`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        cache: "no-store"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setPreviewTemplate(data.data);
+          return;
+        }
+      } else {
+        alert("Warning: Failed to fetch full template. Is the backend updated? Please restart uvicorn.");
+      }
+    } catch (e) {
+      console.error("Failed to load preview details", e);
+      alert("Network error: Failed to connect to backend for preview.");
+    }
+    setPreviewTemplate(template);
   };
 
   const duplicateTemplate = (template: Template) => {
@@ -408,8 +454,7 @@ export default function TemplatesPage() {
 
       content = content.replace(
         regex,
-        `<span style="background:#06b6d433;color:#06b6d4;padding:2px 6px;border-radius:6px;font-weight:600;">${
-          mockData[v] || `[${v}]`
+        `<span style="background:#06b6d433;color:#06b6d4;padding:2px 6px;border-radius:6px;font-weight:600;">${mockData[v] || `[${v}]`
         }</span>`
       );
     });
@@ -465,7 +510,7 @@ export default function TemplatesPage() {
             </div>
 
             {/* Thinned & Lowered Search & Navigation Area */}
-            <div className="flex items-center justify-between gap-4 mb-8 bg-[#050505]/60 sticky top-0 z-20 backdrop-blur-md py-3 border-b border-white/[0.04]">
+            <div className="flex items-center justify-between gap-4 mb-8 sticky top-0 z-20 backdrop-blur-md py-3 border-b border-white/[0.04]">
               <div className="relative">
                 <Search
                   size={15}
@@ -530,7 +575,7 @@ export default function TemplatesPage() {
 
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
                         <button
-                          onClick={() => setPreviewTemplate(template)}
+                          onClick={() => handlePreview(template)}
                           className="p-2 rounded-xl bg-zinc-800 hover:text-cyan-300"
                           title="View template"
                         >
@@ -600,7 +645,7 @@ export default function TemplatesPage() {
                     </div>
 
                     <button
-                      onClick={() => setPreviewTemplate(template)}
+                      onClick={() => handlePreview(template)}
                       className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-medium text-cyan-300 hover:bg-cyan-400/15"
                     >
                       <Eye size={16} />
@@ -663,11 +708,10 @@ export default function TemplatesPage() {
                   onClick={() =>
                     setShowPreview((prev) => !prev)
                   }
-                  className={`px-4 py-3 rounded-2xl border flex items-center gap-2 ${
-                    showPreview
-                      ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"
-                      : "border-zinc-800 bg-zinc-900"
-                  }`}
+                  className={`px-4 py-3 rounded-2xl border flex items-center gap-2 ${showPreview
+                    ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"
+                    : "border-zinc-800 bg-zinc-900"
+                    }`}
                 >
                   <Eye size={16} />
                   Preview
@@ -779,11 +823,10 @@ export default function TemplatesPage() {
 
             {/* EDITOR + PREVIEW */}
             <div
-              className={`grid gap-7 ${
-                showPreview
-                  ? "grid-cols-1 xl:grid-cols-2"
-                  : "grid-cols-1"
-              }`}
+              className={`grid gap-7 ${showPreview
+                ? "grid-cols-1 xl:grid-cols-2"
+                : "grid-cols-1"
+                }`}
             >
               {/* EDITOR */}
               <div className="rounded-[32px] border border-zinc-800 bg-zinc-900/40 overflow-hidden backdrop-blur-xl flex flex-col">
@@ -793,11 +836,10 @@ export default function TemplatesPage() {
                     <div className="flex items-center gap-2 bg-[#0d0d0d] rounded-2xl p-1 border border-zinc-800">
                       <button
                         onClick={() => setEditorMode("html")}
-                        className={`px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm transition ${
-                          editorMode === "html"
-                            ? "bg-zinc-800 text-cyan-400"
-                            : "text-zinc-500"
-                        }`}
+                        className={`px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm transition ${editorMode === "html"
+                          ? "bg-zinc-800 text-cyan-400"
+                          : "text-zinc-500"
+                          }`}
                       >
                         <Code size={14} />
                         HTML
@@ -805,11 +847,10 @@ export default function TemplatesPage() {
 
                       <button
                         onClick={() => setEditorMode("text")}
-                        className={`px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm transition ${
-                          editorMode === "text"
-                            ? "bg-zinc-800 text-cyan-400"
-                            : "text-zinc-500"
-                        }`}
+                        className={`px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm transition ${editorMode === "text"
+                          ? "bg-zinc-800 text-cyan-400"
+                          : "text-zinc-500"
+                          }`}
                       >
                         <AlignLeft size={14} />
                         Plain Text
@@ -896,10 +937,10 @@ export default function TemplatesPage() {
 
                     {Object.keys(formData.variables || {})
                       .length === 0 && (
-                      <span className="text-xs text-zinc-700">
-                        No variables detected
-                      </span>
-                    )}
+                        <span className="text-xs text-zinc-700">
+                          No variables detected
+                        </span>
+                      )}
                   </div>
                 </div>
               </div>
@@ -945,11 +986,10 @@ export default function TemplatesPage() {
                         {/* MAIL CONTENT */}
                         <div className="px-8 py-10 bg-white overflow-x-auto">
                           <div
-                            className={`max-w-none text-black ${
-                              editorMode === "text"
-                                ? "whitespace-pre-wrap text-gray-800 text-[15px] leading-8"
-                                : "text-black"
-                            }`}
+                            className={`max-w-none text-black ${editorMode === "text"
+                              ? "whitespace-pre-wrap text-gray-800 text-[15px] leading-8"
+                              : "text-black"
+                              }`}
                             dangerouslySetInnerHTML={{
                               __html: getPreviewHtml(),
                             }}
@@ -1014,9 +1054,8 @@ export default function TemplatesPage() {
 
                 <div className="px-6 py-8">
                   <div
-                    className={`max-w-none text-black ${
-                      previewTemplate.html_content ? "" : "whitespace-pre-wrap text-[15px] leading-8 text-gray-800"
-                    }`}
+                    className={`max-w-none text-black ${previewTemplate.html_content ? "" : "whitespace-pre-wrap text-[15px] leading-8 text-gray-800"
+                      }`}
                     dangerouslySetInnerHTML={{
                       __html: getPreviewHtml(
                         previewTemplate,

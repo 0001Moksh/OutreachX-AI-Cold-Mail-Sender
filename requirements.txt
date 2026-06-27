@@ -1,10 +1,14 @@
 fastapi
 uvicorn
 httpx
+asyncpg
+pycryptodome
+python-dotenv
 langchain-core
 langgraph
 langchain-google-genai
 langchain-groq
+pydantic
 tavily-python
 beautifulsoup4
 requests

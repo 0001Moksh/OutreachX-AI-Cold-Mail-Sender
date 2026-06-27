@@ -98,8 +98,8 @@ export default function DashboardLayout({ children, activeModule = 'overview' }:
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user_id');
+    // Clear all localStorage so no cached data leaks to next user on same browser
+    localStorage.clear();
     router.push('/login');
   };
 

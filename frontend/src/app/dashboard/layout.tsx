@@ -7,6 +7,8 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { getApiUrl } from "@/lib/api";
+import { ApiKeyModal } from "@/components/deva/ApiKeyModal";
+import { CostPanel } from "@/components/deva/CostPanel";
 import {
   Bot,
   BrainCircuit,
@@ -18,6 +20,8 @@ import {
   Settings,
   Users,
   X,
+  Key,
+  Activity,
 } from "lucide-react";
 
 const navItems = [
@@ -39,6 +43,10 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userName, setUserName] = useState("Chief");
   const [userEmail, setUserEmail] = useState("");
+  const [userId, setUserId] = useState("");
+
+  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
+  const [isCostPanelOpen, setIsCostPanelOpen] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -75,6 +83,7 @@ export default function DashboardLayout({
 
       setUserName(session.user?.user_metadata?.full_name || "Chief");
       setUserEmail(session.user?.email || "");
+      setUserId(session.user?.id || "");
       await fetchProfile(session.access_token);
       setLoading(false);
     };
@@ -114,52 +123,61 @@ export default function DashboardLayout({
       animate={{ x: 0 }}
       exit={mobile ? { x: -320 } : undefined}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className={`${mobile ? "fixed inset-y-0 left-0 z-50 w-80" : `hidden ${sidebarWidth} lg:flex`
+      onClick={() => {
+        if (!sidebarOpen && !mobile) {
+          setSidebarOpen(true);
+        }
+      }}
+      className={`${mobile ? "fixed inset-y-0 left-0 z-50 w-80" : `hidden ${sidebarWidth} lg:flex ${!sidebarOpen ? "cursor-pointer" : ""}`
         } flex-col border-r border-white/[0.07] bg-[#070707] text-white transition-all duration-300`}
     >
       <div
         className={`relative flex h-20 items-center px-5 ${sidebarOpen || mobile ? "justify-between" : "justify-center"
           }`}
       >
-        <Link href="/dashboard" className="flex min-w-0 items-center gap-3">
+        <Link href="/" className="flex min-w-0 items-center mt-2 gap-3">
           <Image
             src="/logo1.png"
             alt="OutreachX Logo"
             width={54}
             height={54}
-            className="rounded-xl h-12 w-auto shrink-0"
+            className={`rounded-xl w-auto shrink-0 ${sidebarOpen || mobile ? "h-12" : "h-8"}`}
           />
           {(sidebarOpen || mobile) && (
             <div className="min-w-0">
-              <h1 className="heading-font text-xl font-semibold tracking-tight">
+              <h1 className="heading-font text-lg font-semibold tracking-tight">
                 OutreachX
               </h1>
-              <p className="truncate text-xs text-zinc-500">Deva command center</p>
+              <p className="text-xl">DEVA
+              </p>
             </div>
           )}
         </Link>
 
         {mobile ? (
           <button
-            onClick={() => setMobileOpen(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMobileOpen(false);
+            }}
             className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.03] text-zinc-300"
             aria-label="Close sidebar"
           >
             <X size={18} />
           </button>
         ) : (
-          <button
-            onClick={() => setSidebarOpen((value) => !value)}
-            className={`hidden h-10 w-10 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.03] text-zinc-300 hover:border-cyan-400/30 hover:text-cyan-300 lg:flex ${sidebarOpen ? "" : "absolute -right-5 top-5 bg-[#0a0a0a]"
-              }`}
-            aria-label="Toggle sidebar"
-          >
-            <ChevronLeft
-              size={18}
-              className={`transition-transform duration-300 ${sidebarOpen ? "" : "rotate-180"
-                }`}
-            />
-          </button>
+          sidebarOpen && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSidebarOpen(false);
+              }}
+              className="absolute -right-5 top-5 z-50 hidden h-10 w-10 items-center justify-center rounded-full border border-white/[0.07] bg-[#0a0a0a] text-zinc-300 hover:border-cyan-400/30 hover:text-cyan-300 lg:flex"
+              aria-label="Close sidebar"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )
         )}
       </div>
 
@@ -198,6 +216,20 @@ export default function DashboardLayout({
           <Settings size={19} />
           {(sidebarOpen || mobile) && <span>Settings</span>}
         </Link>
+        <button
+          onClick={() => setIsApiModalOpen(true)}
+          className="flex h-12 w-full items-center gap-3 rounded-2xl px-3 text-sm font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
+        >
+          <Key size={19} />
+          {(sidebarOpen || mobile) && <span>API Keys</span>}
+        </button>
+        <button
+          onClick={() => setIsCostPanelOpen(true)}
+          className="flex h-12 w-full items-center gap-3 rounded-2xl px-3 text-sm font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
+        >
+          <Activity size={19} />
+          {(sidebarOpen || mobile) && <span>Cost Usage</span>}
+        </button>
       </div>
     </motion.aside>
   );
@@ -266,6 +298,17 @@ export default function DashboardLayout({
 
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </main>
+
+      <ApiKeyModal 
+        isOpen={isApiModalOpen} 
+        onClose={() => setIsApiModalOpen(false)} 
+        userId={userId} 
+      />
+      <CostPanel 
+        isOpen={isCostPanelOpen} 
+        onClose={() => setIsCostPanelOpen(false)} 
+        userId={userId} 
+      />
     </div>
   );
 }

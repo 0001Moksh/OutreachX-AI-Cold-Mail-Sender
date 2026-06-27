@@ -17,6 +17,8 @@ import {
   Check,
   Sparkles,
   X,
+  Eye,
+  RefreshCw,
 } from 'lucide-react';
 
 interface Campaign {
@@ -37,10 +39,9 @@ interface Campaign {
   total_leads?: number;
   sent_count?: number;
   opened_count?: number;
-  clicked_count?: number;
-  replied_count?: number;
   bounced_count?: number;
   failed_count?: number;
+  lead_files?: string[];
   created_at: string;
   updated_at?: string;
 }
@@ -109,6 +110,107 @@ export default function CampaignsPage() {
     text_content: '',
   });
   const [savingTemplateInline, setSavingTemplateInline] = useState(false);
+
+  const [analyticsModal, setAnalyticsModal] = useState<{
+    isOpen: boolean;
+    campaignId: string | null;
+    status: 'sent' | 'replied' | 'failed' | null;
+    data: any[];
+    loading: boolean;
+  }>({ isOpen: false, campaignId: null, status: null, data: [], loading: false });
+
+  const [refreshingAction, setRefreshingAction] = useState<string | null>(null);
+  
+  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+  const [campaignLeads, setCampaignLeads] = useState<{isOpen: boolean; data: any[]; loading: boolean}>({ isOpen: false, data: [], loading: false });
+  const [isRemovingFailed, setIsRemovingFailed] = useState(false);
+
+  const handleViewAnalytics = async (campaignId: string, status: 'sent' | 'replied' | 'failed') => {
+    setAnalyticsModal({ isOpen: true, campaignId, status, data: [], loading: true });
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const response = await fetch(`${apiUrl}/campaigns/${campaignId}/analytics/details?status_filter=${status}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setAnalyticsModal(prev => ({ ...prev, data: data.data, loading: false }));
+      } else {
+        setAnalyticsModal(prev => ({ ...prev, loading: false }));
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      setAnalyticsModal(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleRefreshAnalytics = async (campaignId: string, type: 'replies' | 'failed') => {
+    setRefreshingAction(`${campaignId}-${type}`);
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const response = await fetch(`${apiUrl}/campaigns/${campaignId}/refresh-${type}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchCampaigns();
+        alert(data.message);
+      } else {
+        alert(data.detail || data.message || 'Failed to refresh');
+      }
+    } catch (error) {
+      console.error('Error refreshing:', error);
+      alert('Error refreshing analytics data');
+    } finally {
+      setRefreshingAction(null);
+    }
+  };
+
+  const handleViewLeads = async (campaignId: string) => {
+    setCampaignLeads({ isOpen: true, data: [], loading: true });
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${apiUrl}/campaigns/${campaignId}/leads`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCampaignLeads({ isOpen: true, data: data.data, loading: false });
+      } else {
+        setCampaignLeads(prev => ({ ...prev, loading: false }));
+      }
+    } catch (e) {
+      console.error(e);
+      setCampaignLeads(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleRemoveFailedLeads = async (campaignId: string) => {
+    if (!confirm("Are you sure you want to remove all failed emails from the original lead lists? This cannot be undone.")) return;
+    setIsRemovingFailed(true);
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const res = await fetch(`${apiUrl}/campaigns/${campaignId}/remove-failed-leads`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      alert(data.message);
+      if (data.success) {
+        fetchCampaigns();
+        handleViewAnalytics(campaignId, 'failed');
+        if (viewingCampaign && viewingCampaign.id === campaignId) {
+            setViewingCampaign(null); // Simple way to force refresh if they go back
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to remove emails.");
+    } finally {
+      setIsRemovingFailed(false);
+    }
+  };
 
   const handleLeadFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1150,45 +1252,73 @@ export default function CampaignsPage() {
                       </div>
 
                       {/* STATS */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4 backdrop-blur-sm">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                        <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4 backdrop-blur-sm relative group">
                           <p className="text-xs text-zinc-500 uppercase">
                             Sent
                           </p>
-
                           <p className="text-2xl font-bold mt-2 text-white">
                             {sent}
                           </p>
+                          <button
+                            onClick={() => handleViewAnalytics(campaign.id, 'sent')}
+                            className="absolute top-4 right-4 text-xs bg-zinc-800 hover:bg-zinc-700 text-white p-2 rounded transition"
+                            title="View"
+                          >
+                            <Eye size={16} />
+                          </button>
                         </div>
 
-                        <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4 backdrop-blur-sm">
-                          <p className="text-xs text-zinc-500 uppercase">
-                            Opened
-                          </p>
-
-                          <p className="text-2xl font-bold mt-2 text-green-400">
-                            {campaign.opened_count || 0}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4 backdrop-blur-sm">
+                        <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4 backdrop-blur-sm relative group">
                           <p className="text-xs text-zinc-500 uppercase">
                             Replied
                           </p>
-
                           <p className="text-2xl font-bold mt-2 text-purple-400">
                             {campaign.replied_count || 0}
                           </p>
+                          <div className="absolute top-4 right-4 flex gap-2">
+                            <button
+                              onClick={() => handleRefreshAnalytics(campaign.id, 'replies')}
+                              disabled={refreshingAction === `${campaign.id}-replies`}
+                              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white p-2 rounded transition disabled:opacity-50"
+                              title="Refresh"
+                            >
+                              <RefreshCw size={16} className={refreshingAction === `${campaign.id}-replies` ? "animate-spin" : ""} />
+                            </button>
+                            <button
+                              onClick={() => handleViewAnalytics(campaign.id, 'replied')}
+                              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white p-2 rounded transition"
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4 backdrop-blur-sm">
+                        <div className="rounded-2xl border border-zinc-800 bg-black/40 p-4 backdrop-blur-sm relative group">
                           <p className="text-xs text-zinc-500 uppercase">
                             Failed
                           </p>
-
                           <p className="text-2xl font-bold mt-2 text-red-400">
                             {failed}
                           </p>
+                          <div className="absolute top-4 right-4 flex gap-2">
+                            <button
+                              onClick={() => handleRefreshAnalytics(campaign.id, 'failed')}
+                              disabled={refreshingAction === `${campaign.id}-failed`}
+                              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white p-2 rounded transition disabled:opacity-50"
+                              title="Refresh"
+                            >
+                              <RefreshCw size={16} className={refreshingAction === `${campaign.id}-failed` ? "animate-spin" : ""} />
+                            </button>
+                            <button
+                              onClick={() => handleViewAnalytics(campaign.id, 'failed')}
+                              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white p-2 rounded transition"
+                              title="View"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -1313,28 +1443,207 @@ export default function CampaignsPage() {
             </div>
             
             <div className="space-y-6">
-              <div className="bg-zinc-900/50 rounded-2xl p-5 border border-zinc-800">
-                <h3 className="text-cyan-400 font-semibold mb-3">Leads Details</h3>
-                <p className="text-zinc-300 text-sm">Total Leads: <span className="font-medium text-white">{viewingCampaign.total_leads || 0}</span></p>
+              {/* CARD 1: Lead Details */}
+              <div className="bg-zinc-900/50 rounded-2xl p-5 border border-zinc-800 relative">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-cyan-400 font-semibold">Lead Details</h3>
+                  <button onClick={() => handleViewLeads(viewingCampaign.id)} className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-2">
+                    <Eye size={14} /> View Leads
+                  </button>
+                </div>
+                {viewingCampaign.lead_files && viewingCampaign.lead_files.length > 0 && (
+                  <div className="text-sm mb-3">
+                    <span className="text-zinc-400">Attached Files:</span>
+                    <ul className="list-disc ml-5 mt-1 text-zinc-300 font-medium">
+                      {viewingCampaign.lead_files.map((file, idx) => (
+                        <li key={idx}>{file}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p className="text-zinc-400 text-sm">Total Leads: <span className="font-medium text-white">{viewingCampaign.total_leads || 0}</span></p>
               </div>
               
-              <div className="bg-zinc-900/50 rounded-2xl p-5 border border-zinc-800">
-                <h3 className="text-cyan-400 font-semibold mb-3">Template Details</h3>
-                <p className="text-zinc-300 text-sm">Template ID: <span className="font-medium text-white">{viewingCampaign.template_id || 'None'}</span></p>
+              {/* CARD 2: Template Details */}
+              <div className="bg-zinc-900/50 rounded-2xl p-5 border border-zinc-800 relative">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-cyan-400 font-semibold">Template Details</h3>
+                  <button onClick={() => setPreviewTemplate(templates.find(t => t.id === viewingCampaign.template_id) || null)} className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-2">
+                    <Eye size={14} /> View Template
+                  </button>
+                </div>
+                <p className="text-zinc-300 text-sm mb-4">Template Name: <span className="font-medium text-white">{templates.find(t => t.id === viewingCampaign.template_id)?.name || viewingCampaign.template_id || 'None'}</span></p>
+                
                 {viewingCampaign.variable_mapping && Object.keys(viewingCampaign.variable_mapping).length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="text-zinc-400 text-xs uppercase mb-2">Variable Mapping</h4>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {Object.entries(viewingCampaign.variable_mapping).map(([k, v]) => (
-                        <div key={k} className="flex justify-between bg-black/40 rounded-lg p-2 border border-zinc-800">
-                          <span className="text-cyan-300">{'{{'}{k}{'}}'}</span>
-                          <span className="text-zinc-300">{v}</span>
-                        </div>
+                  <div>
+                    <h4 className="text-zinc-500 text-xs uppercase mb-2">Template Variables</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.keys(viewingCampaign.variable_mapping).map((k) => (
+                        <span key={k} className="bg-black/50 text-cyan-300 px-2 py-1 rounded text-xs border border-zinc-800">
+                          {'{{'}{k}{'}}'}
+                        </span>
                       ))}
                     </div>
                   </div>
                 )}
               </div>
+
+              {/* CARD 3: Variable Mapping */}
+              {viewingCampaign.variable_mapping && Object.keys(viewingCampaign.variable_mapping).length > 0 && (
+                <div className="bg-zinc-900/50 rounded-2xl p-5 border border-zinc-800">
+                  <h3 className="text-cyan-400 font-semibold mb-3">Variable Mapping</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-zinc-300 border-collapse">
+                      <thead className="text-xs text-zinc-500 uppercase bg-black/40 border-b border-zinc-800">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">Template Variable</th>
+                          <th className="px-4 py-3 font-medium">Mapped Column</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(viewingCampaign.variable_mapping).map(([k, v]) => (
+                          <tr key={k} className="border-b border-zinc-800/50">
+                            <td className="px-4 py-3 text-cyan-300 font-mono text-xs">{'{{'}{k}{'}}'}</td>
+                            <td className="px-4 py-3">{v}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ANALYTICS MODAL */}
+      {analyticsModal.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#080808] shadow-[0_30px_120px_rgba(0,0,0,0.65)] p-8">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-1 capitalize">{analyticsModal.status} Emails</h2>
+                <div className="flex items-center gap-4 mt-1">
+                  <p className="text-zinc-400 text-sm">List of emails for this campaign</p>
+                  {analyticsModal.status === 'failed' && analyticsModal.campaignId && (
+                    <button 
+                      onClick={() => handleRemoveFailedLeads(analyticsModal.campaignId!)}
+                      disabled={isRemovingFailed || analyticsModal.data.length === 0}
+                      className="bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs px-3 py-1.5 rounded-lg border border-red-500/20 transition flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isRemovingFailed ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                      Remove from attached leads
+                    </button>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => setAnalyticsModal({ isOpen: false, campaignId: null, status: null, data: [], loading: false })} className="text-zinc-500 hover:text-white transition">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {analyticsModal.loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader className="animate-spin text-cyan-400" size={32} />
+                </div>
+              ) : analyticsModal.data.length === 0 ? (
+                <div className="text-center py-12 text-zinc-500">
+                  No records found
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {analyticsModal.data.map((item, i) => (
+                    <div key={i} className="flex justify-between items-center bg-zinc-900/50 rounded-xl p-4 border border-zinc-800">
+                      <div>
+                        <p className="text-white font-medium">{item.email}</p>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          {item.sent_at ? new Date(item.sent_at).toLocaleString() : ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-xs px-2 py-1 rounded capitalize ${item.status === 'sent' ? 'bg-blue-500/10 text-blue-400' : item.status === 'replied' ? 'bg-purple-500/10 text-purple-400' : 'bg-red-500/10 text-red-400'}`}>
+                          {item.status}
+                        </span>
+                        {item.error && (
+                          <p className="text-xs text-red-400 mt-1 max-w-[200px] truncate" title={item.error}>{item.error}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LEAD PREVIEW MODAL */}
+      {campaignLeads.isOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
+          <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#080808] shadow-[0_30px_120px_rgba(0,0,0,0.65)] p-8">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-2xl font-bold text-white mb-1">Attached Leads</h2>
+              <button onClick={() => setCampaignLeads({ isOpen: false, data: [], loading: false })} className="text-zinc-500 hover:text-white transition">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-auto rounded-xl border border-zinc-800 bg-black/50">
+              {campaignLeads.loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader className="animate-spin text-cyan-400" size={32} />
+                </div>
+              ) : campaignLeads.data.length === 0 ? (
+                <div className="text-center py-12 text-zinc-500">
+                  No leads found.
+                </div>
+              ) : (
+                <table className="w-full text-sm text-left text-zinc-300">
+                  <thead className="text-xs text-zinc-500 uppercase bg-zinc-900/50 border-b border-zinc-800 sticky top-0">
+                    <tr>
+                      {Object.keys(campaignLeads.data[0]).map((key) => (
+                        <th key={key} className="px-4 py-3 font-medium whitespace-nowrap">{key}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {campaignLeads.data.map((row, i) => (
+                      <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-900/30">
+                        {Object.values(row).map((val: any, j) => (
+                          <td key={j} className="px-4 py-3 truncate max-w-[200px]" title={String(val)}>{String(val)}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TEMPLATE PREVIEW MODAL */}
+      {previewTemplate && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#080808] shadow-[0_30px_120px_rgba(0,0,0,0.65)] p-8">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-1">Template Preview</h2>
+                <p className="text-zinc-400 text-sm">{previewTemplate.name}</p>
+              </div>
+              <button onClick={() => setPreviewTemplate(null)} className="text-zinc-500 hover:text-white transition">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto bg-white rounded-xl p-6 shadow-inner text-black">
+              {previewTemplate.html_content ? (
+                <div dangerouslySetInnerHTML={{ __html: previewTemplate.html_content }} />
+              ) : (
+                <pre className="whitespace-pre-wrap font-sans">{previewTemplate.text_content}</pre>
+              )}
             </div>
           </div>
         </div>

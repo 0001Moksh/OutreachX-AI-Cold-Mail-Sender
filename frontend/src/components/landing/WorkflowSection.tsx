@@ -62,9 +62,6 @@ export default function WorkflowSection() {
 
         {/* Timeline Horizontal Line / Visual Nodes (Responsive) */}
         <div className="relative">
-          {/* Vertical line for mobile, horizontal path for large screens */}
-          <div className="absolute left-8 lg:left-0 lg:right-0 top-0 bottom-0 lg:top-1/2 lg:h-0.5 bg-gradient-to-r lg:from-cyan-950 lg:via-cyan-500/30 lg:to-zinc-900 w-0.5 lg:w-full z-0" />
-
           <div className="grid lg:grid-cols-7 gap-12 lg:gap-6 relative z-10">
             {steps.map((step, idx) => (
               <motion.div
@@ -79,7 +76,7 @@ export default function WorkflowSection() {
                 <div className="flex-shrink-0 mr-6 lg:mr-0 lg:mb-6 relative">
                   {/* Glowing aura */}
                   <div className="absolute inset-0 bg-cyan-500/10 rounded-full blur-md group-hover:bg-cyan-500/35 transition-colors" />
-                  
+
                   {/* Outer circle */}
                   <div className="relative w-16 h-16 rounded-full bg-zinc-900 border-2 border-zinc-800 flex items-center justify-center group-hover:border-cyan-400 group-hover:scale-105 transition-all duration-300 shadow-xl">
                     {step.icon}
