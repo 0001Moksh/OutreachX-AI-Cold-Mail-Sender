@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey, Table, Index, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey, Table, Index, UniqueConstraint, Numeric
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -82,6 +82,8 @@ class User(Base):
     campaigns = relationship("Campaign", back_populates="user", cascade="all, delete-orphan")
     ai_memories = relationship("AIMemory", back_populates="user", cascade="all, delete-orphan")
     otp_codes = relationship("OTPCode", back_populates="user", cascade="all, delete-orphan")
+    api_key = relationship("APIKey", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    cost_tracking = relationship("CostTracking", back_populates="user", cascade="all, delete-orphan")
 
 
 class OTPCode(Base):
@@ -338,3 +340,35 @@ class CampaignTask(Base):
     # Relationships
     campaign = relationship("Campaign", back_populates="tasks")
     user = relationship("User")
+
+
+# ==================== DEVA CONFIG & USAGE ====================
+class APIKey(Base):
+    __tablename__ = "api_keys"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), unique=True, nullable=False)
+    gemini_key = Column(Text)
+    groq_key = Column(Text)
+    openrouter_key = Column(Text)
+    tavily_key = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="api_key")
+
+
+class CostTracking(Base):
+    __tablename__ = "cost_tracking"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    api_provider = Column(Text, nullable=False)
+    tokens_used = Column(Integer, default=0)
+    duration_ms = Column(Integer, default=0)
+    estimated_cost = Column(Numeric, default=0.0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="cost_tracking")

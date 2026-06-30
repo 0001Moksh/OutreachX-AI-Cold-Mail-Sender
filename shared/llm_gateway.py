@@ -2,9 +2,17 @@ import os
 from typing import Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
-from shared.deva_tracer import trace_function
+def _get_gemini_flash(api_key: str):
+    m1 = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key)
+    m2 = ChatGoogleGenerativeAI(model="gemini-1.5-flash", api_key=api_key)
+    return m1.with_fallbacks([m2])
 
-@trace_function("LLM Gateway: Model Selection")
+def _get_gemini_pro(api_key: str):
+    m1 = ChatGoogleGenerativeAI(model="gemini-2.5-pro", api_key=api_key)
+    m2 = ChatGoogleGenerativeAI(model="gemini-1.5-pro", api_key=api_key)
+    m3 = ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=api_key)
+    return m1.with_fallbacks([m2, m3])
+
 def get_llm(mode: str, keys: dict):
     """
     Centralized model routing gateway.
@@ -26,23 +34,22 @@ def get_llm(mode: str, keys: dict):
     if mode == "fast":
         if has_groq:
             return ChatGroq(model="llama-3.1-8b-instant", api_key=keys["groq"])
-        return ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=keys["gemini"])
+        return _get_gemini_flash(keys["gemini"])
         
     elif mode == "balanced":
         # Prefer Groq for speed/balanced if available
         if has_groq:
             return ChatGroq(model="llama-3.3-70b-versatile", api_key=keys["groq"])
-        return ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=keys["gemini"])
+        return _get_gemini_flash(keys["gemini"])
         
     elif mode == "smart":
         if has_gemini:
-            # Assume gemini-pro is available for smart/expert
-            return ChatGoogleGenerativeAI(model="gemini-1.5-pro", api_key=keys["gemini"])
+            return _get_gemini_pro(keys["gemini"])
         return ChatGroq(model="llama-3.3-70b-versatile", api_key=keys["groq"])
         
     elif mode == "expert":
         if has_gemini:
-            return ChatGoogleGenerativeAI(model="gemini-1.5-pro", api_key=keys["gemini"])
+            return _get_gemini_pro(keys["gemini"])
         # Fallback to groq's best available
         return ChatGroq(model="llama-3.3-70b-versatile", api_key=keys["groq"])
         
@@ -50,4 +57,4 @@ def get_llm(mode: str, keys: dict):
         # Default fallback
         if has_groq:
             return ChatGroq(model="llama-3.3-70b-versatile", api_key=keys["groq"])
-        return ChatGoogleGenerativeAI(model="gemini-2.5-flash", api_key=keys["gemini"])
+        return _get_gemini_flash(keys["gemini"])

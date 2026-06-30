@@ -105,7 +105,6 @@ export default function DashboardLayout({ children, activeModule = 'overview' }:
 
   const modules = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard, href: '/dashboard' },
-    { id: 'devaai', label: 'DevaAI Chat', icon: MessageSquare, href: '/dashboard/devaai' },
     { id: 'templates', label: 'Templates', icon: Mail, href: '/dashboard/templates' },
     { id: 'assets', label: 'Assets', icon: GitBranch, href: '/dashboard/assets' },
     { id: 'leads', label: 'Leads', icon: Users, href: '/dashboard/leads' },

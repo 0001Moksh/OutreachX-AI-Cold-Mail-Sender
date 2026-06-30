@@ -1,9 +1,0 @@
-fastapi
-uvicorn
-httpx
-langchain-core
-langgraph
-langchain-google-genai
-langchain-groq
-tavily-python
-pydantic

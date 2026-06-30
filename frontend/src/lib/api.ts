@@ -4,3 +4,7 @@ const defaultDevaApiUrl = "http://localhost:8010";
 export function getApiUrl() {
 	return process.env.NEXT_PUBLIC_API_URL || defaultApiUrl;
 }
+
+export function getDevaApiUrl() {
+	return process.env.NEXT_PUBLIC_DEVA_API_URL || defaultDevaApiUrl;
+}

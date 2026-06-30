@@ -138,34 +138,6 @@ services:
       - outreachx-network
     restart: unless-stopped
 
-  # Deva AI OS Agent Backend
-  deva:
-    build:
-      context: .
-      dockerfile: deva/Dockerfile
-    ports:
-      - "8001:8001"
-    environment:
-      DATABASE_URL: postgresql://outreachx:outreachx_password@postgres:5432/outreachx
-      JWT_SECRET: ${JWT_SECRET:-ccd260894f958dee932f4f108ff8cc3138c3444902c9f707f1c5c4c8625a589c}
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-VICq9Ciwg1lwTm5hSuGpWbvBeevDyH5u7xSI6N9xhQf+CRRNTdCrRtJrfX4i4SyozlQ6BJ2+3AhY9XC2wtdm8w==}
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      GROQ_MODEL: ${GROQ_MODEL:-llama-3.1-70b-versatile}
-      GROQ_TEMPERATURE: ${GROQ_TEMPERATURE:-0.7}
-      COHERE_API_KEY: ${COHERE_API_KEY}
-      COHERE_EMBED_MODEL: ${COHERE_EMBED_MODEL:-embed-v4.0}
-      COHERE_OUTPUT_DIMENSION: ${COHERE_OUTPUT_DIMENSION:-1536}
-      PINECONE_API_KEY: ${PINECONE_API_KEY}
-      PINECONE_INDEX: ${PINECONE_INDEX:-outreachx}
-      PINECONE_HOST: ${PINECONE_HOST}
-      TAVILY_API_KEY: ${TAVILY_API_KEY}
-      ALLOWED_ORIGINS: http://localhost:3000,http://frontend:3000
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - outreachx-network
-
   # Frontend
   frontend:
     build:
@@ -175,7 +147,6 @@ services:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_API_URL: http://backend:8000
-      NEXT_PUBLIC_DEVA_API_URL: http://localhost:8001
     depends_on:
       - backend
     networks:

@@ -39,6 +39,8 @@ interface Campaign {
   total_leads?: number;
   sent_count?: number;
   opened_count?: number;
+  clicked_count?: number;
+  replied_count?: number;
   bounced_count?: number;
   failed_count?: number;
   lead_files?: string[];

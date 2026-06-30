@@ -8,7 +8,7 @@ const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space
 import { constructMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = constructMetadata({
-  title: "OutreachX Dashboard",
+  title: "OutreachX — DEVA",
   description: "AI-Powered Cold Outreach Operating System",
 });
 

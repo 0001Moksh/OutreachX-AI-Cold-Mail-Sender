@@ -8,7 +8,6 @@ import { getApiUrl } from "@/lib/api";
 import {
   ArrowRight,
   BarChart3,
-  Bot,
   BrainCircuit,
   CheckCircle2,
   Database,
@@ -217,14 +216,6 @@ export default function Dashboard() {
 
   const modules = [
     {
-      title: "Deva",
-      href: "/dashboard/devaai",
-      icon: Bot,
-      stat: "AI command layer",
-      detail: "Generate strategy, workflows, and campaign operations.",
-      accent: "text-cyan-300",
-    },
-    {
       title: "Assets",
       href: "/dashboard/assets",
       icon: BrainCircuit,
@@ -333,7 +324,7 @@ export default function Dashboard() {
                 Welcome back, {firstName}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-zinc-400 sm:text-base">
-                Your Deva, Assets, Templates, Leads, Campaigns, and Settings
+                Your Assets, Templates, Leads, Campaigns, and Settings
                 now sit in one command view with the signals that matter most.
               </p>
 
@@ -344,13 +335,6 @@ export default function Dashboard() {
                 >
                   <Plus size={17} />
                   New Campaign
-                </Link>
-                <Link
-                  href="/dashboard/devaai"
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-5 py-3 text-sm font-medium text-zinc-100 hover:border-cyan-400/30"
-                >
-                  Ask Deva
-                  <ArrowRight size={17} />
                 </Link>
               </div>
             </div>

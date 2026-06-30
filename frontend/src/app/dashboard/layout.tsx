@@ -7,12 +7,10 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { getApiUrl } from "@/lib/api";
-import { ApiKeyModal } from "@/components/deva/ApiKeyModal";
-import { CostPanel } from "@/components/deva/CostPanel";
 import {
-  Bot,
   BrainCircuit,
   ChevronLeft,
+  Database,
   FileText,
   LayoutDashboard,
   Mail,
@@ -20,14 +18,12 @@ import {
   Settings,
   Users,
   X,
-  Key,
-  Activity,
 } from "lucide-react";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Deva", href: "/dashboard/devaai", icon: Bot },
-  { label: "Assets", href: "/dashboard/assets", icon: BrainCircuit },
+  { label: "Deva AI", href: "/dashboard/deva", icon: BrainCircuit },
+  { label: "Assets", href: "/dashboard/assets", icon: Database },
   { label: "Templates", href: "/dashboard/templates", icon: FileText },
   { label: "Leads", href: "/dashboard/leads", icon: Users },
   { label: "Campaigns", href: "/dashboard/campaigns", icon: Mail },
@@ -44,9 +40,6 @@ export default function DashboardLayout({
   const [userName, setUserName] = useState("Chief");
   const [userEmail, setUserEmail] = useState("");
   const [userId, setUserId] = useState("");
-
-  const [isApiModalOpen, setIsApiModalOpen] = useState(false);
-  const [isCostPanelOpen, setIsCostPanelOpen] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -180,24 +173,27 @@ export default function DashboardLayout({
           )
         )}
       </div>
-
       <nav className="flex-1 space-y-2 px-4 py-4">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
+          const isCollapsed = !sidebarOpen && !mobile;
 
           return (
             <Link
               key={`${item.label}-${item.href}`}
               href={item.href}
               onClick={() => mobile && setMobileOpen(false)}
-              title={!sidebarOpen && !mobile ? item.label : undefined}
-              className={`group relative flex h-12 items-center gap-3 rounded-2xl px-3 text-sm font-medium transition-all duration-200 ${active
+              title={isCollapsed ? item.label : undefined}
+              className={`group relative flex h-12 items-center rounded-2xl px-3 text-sm font-medium transition-all duration-200 ${active
                 ? "bg-cyan-400 text-black shadow-lg shadow-cyan-400/10"
                 : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
-                }`}
+                } ${isCollapsed ? "justify-center px-0" : "gap-3"}`}
             >
-              <Icon size={19} className="shrink-0" />
+              <Icon
+                size={19}
+                className={`shrink-0 transition-all ${isCollapsed ? "scale-110" : ""}`}
+              />
               {(sidebarOpen || mobile) && <span>{item.label}</span>}
             </Link>
           );
@@ -216,20 +212,6 @@ export default function DashboardLayout({
           <Settings size={19} />
           {(sidebarOpen || mobile) && <span>Settings</span>}
         </Link>
-        <button
-          onClick={() => setIsApiModalOpen(true)}
-          className="flex h-12 w-full items-center gap-3 rounded-2xl px-3 text-sm font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
-        >
-          <Key size={19} />
-          {(sidebarOpen || mobile) && <span>API Keys</span>}
-        </button>
-        <button
-          onClick={() => setIsCostPanelOpen(true)}
-          className="flex h-12 w-full items-center gap-3 rounded-2xl px-3 text-sm font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
-        >
-          <Activity size={19} />
-          {(sidebarOpen || mobile) && <span>Cost Usage</span>}
-        </button>
       </div>
     </motion.aside>
   );
@@ -299,16 +281,6 @@ export default function DashboardLayout({
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </main>
 
-      <ApiKeyModal 
-        isOpen={isApiModalOpen} 
-        onClose={() => setIsApiModalOpen(false)} 
-        userId={userId} 
-      />
-      <CostPanel 
-        isOpen={isCostPanelOpen} 
-        onClose={() => setIsCostPanelOpen(false)} 
-        userId={userId} 
-      />
     </div>
   );
 }
