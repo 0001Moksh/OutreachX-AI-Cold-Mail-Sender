@@ -2,13 +2,9 @@
 
 An enterprise-grade, stateful multi-agent AI orchestration architecture implemented in [`notebook7.ipynb`](file:///c:/Users/renuk/Projects/cold%20Mail%20Sender/jupyter_notebook_deva_refrence/notebook7.ipynb). Built on **LangGraph**, **LiteLLM**, and **SQLAlchemy**, Deva acts as an autonomous outbound outreach mesh that structures campaigns, generates hyper-personalized templates, searches the live web, and executes database analytics.
 
-### Demo Video
+## 🎥 Demo video
 
-<video controls width="100%">
-  <source src="./assest/demo_video.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-
+[![Watch Demo](./assest/demo_thumbnail.png)](https://www.linkedin.com/posts/moksh-bhardwaj_ai-agenticai-generativeai-ugcPost-7477763206741118976-vnWq/?utm_source=share&utm_medium=member_desktop&rcm=ACoAAE_o2XoBykUQc7Wc7eq2JRdjIvCobQ7DLNc)
 ---
 
 ## 🚀 Architecture Value Proposition
